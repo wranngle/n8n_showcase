@@ -12,9 +12,9 @@ Sanitized n8n workflow library: lead intake, enrichment, post-call processing, a
 
 ## Demo
 
-[![Install walkthrough](https://img.shields.io/badge/%E2%96%B6-install--demo.mp4-blue?logo=github)](docs/install-demo.mp4)
+[![Install walkthrough: registry browse, fixture generation, workflow import, webhook invoke, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
 
-54-second walkthrough (historical, illustrative only): browse `workflows/registry.yaml` → generate a synthetic fixture → `POST /rest/workflows` → invoke via webhook → governance check. The current checkout ships no `workflows/live-universalized/` fixtures, so the fixture-generation step shown does not run today (see Test fixtures below). Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
+54-second walkthrough at 3x (historical, illustrative only; click through for the full-speed mp4): browse `workflows/registry.yaml` → generate a synthetic fixture → `POST /rest/workflows` → invoke via webhook → governance check. The current checkout ships no `workflows/live-universalized/` fixtures, so the fixture-generation step shown does not run today (see Test fixtures below). Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
 
 ## Fork a workflow
 

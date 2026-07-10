@@ -1,6 +1,6 @@
 # n8n
 
-> sanitized n8n workflow library: lead intake, enrichment, post-call processing, and webhook security middleware
+> sanitized lead-intake and post-call n8n workflows you can install, govern, and webhook-harden
 
 [![CI](https://github.com/wranngle/n8n/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/wranngle/n8n?color=A371F7)](LICENSE) ![Status](https://img.shields.io/badge/status-active-brightgreen)
 

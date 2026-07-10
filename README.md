@@ -1,6 +1,38 @@
 # n8n
 
-Sanitized n8n workflow library: lead intake, enrichment, post-call processing, and webhook security middleware. The checked-in workflows are generic n8n. The registry still carries legacy voice-agent workflow metadata (ElevenLabs business process, integration entries), but the live agent runtime lives at [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals).
+> sanitized n8n workflow library: lead intake, enrichment, post-call processing, and webhook security middleware
+
+[![CI](https://github.com/wranngle/n8n/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/wranngle/n8n?color=A371F7)](LICENSE) ![Status](https://img.shields.io/badge/status-active-brightgreen)
+
+> [!NOTE]
+> Active personal project. Used in my own workflow. Issues triaged on a personal-time cadence.
+
+## Demo
+
+[![Install walkthrough slides: registry browse, workflow install command, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
+
+32-second slide walkthrough at 3x (click through for the full-speed mp4): list the registry's three entries, install a workflow over the n8n REST API, run the governance engine. Every count and output shown comes from a real run against this checkout. Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
+
+## Quick start
+
+```bash
+git clone https://github.com/wranngle/n8n.git
+cd n8n
+npm install
+
+# Workflow API utilities (require N8N_API_KEY)
+node scripts/list_workflows.js
+node scripts/activate-workflow.js --workflow <id>
+
+# Governance audit (one workflow file per run)
+node scripts/governance-engine.js workflows/dev/pipeline-test-webhook-processor.json
+
+# Webhook security middleware (idempotent, run after creating new workflows)
+node scripts/secure-n8n-webhooks.js --apply
+node scripts/secure-internal-callers.js --apply
+```
+
+See [`.env.example`](.env.example) for required environment variables.
 
 ## What's in here
 
@@ -10,11 +42,7 @@ Sanitized n8n workflow library: lead intake, enrichment, post-call processing, a
 - **`tests/`**: workflow integration smoke tests
 - **`context/`**: local knowledge bases (YouTube + Discord research) feeding the workflow generator
 
-## Demo
-
-[![Install walkthrough: registry browse, fixture generation, workflow import, webhook invoke, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
-
-54-second walkthrough at 3x (historical, illustrative only; click through for the full-speed mp4): browse `workflows/registry.yaml` → generate a synthetic fixture → `POST /rest/workflows` → invoke via webhook → governance check. The current checkout ships no `workflows/live-universalized/` fixtures, so the fixture-generation step shown does not run today (see Test fixtures below). Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
+The checked-in workflows are generic n8n. The registry still carries legacy voice-agent workflow metadata (ElevenLabs business process, integration entries), but the live agent runtime lives at [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals).
 
 ## Fork a workflow
 
@@ -58,23 +86,6 @@ _Freshness reference: 2026-05-14. Entries audited within the last 90 days render
 | `youtube-rag-pipeline` | ![audited](https://img.shields.io/badge/audited-2026--05--14-brightgreen) | gitleaks+verify |
 <!-- END SECURITY AUDIT TABLE -->
 
-
-## Running
-
-```bash
-# Workflow API utilities (require N8N_API_KEY)
-node scripts/list_workflows.js
-node scripts/activate-workflow.js --workflow <id>
-
-# Governance audit
-node scripts/governance-engine.js --check
-
-# Webhook security middleware (idempotent, run after creating new workflows)
-node scripts/secure-n8n-webhooks.js --apply
-node scripts/secure-internal-callers.js --apply
-```
-
-See [`.env.example`](.env.example) for required environment variables.
 
 ## One-click install
 

@@ -1,7 +1,19 @@
 #!/usr/bin/env node
-// Deterministic generator for docs/install-demo.mp4 — a slide-based walkthrough of
-// `scripts/install-workflow.js` + per-workflow fixture invocation. Renders text slides
-// with ffmpeg drawtext, concatenates them, and emits a single MP4 ≤90s / ≤10MB.
+// Deterministic generator for docs/install-demo.mp4 plus the 3x-speed
+// docs/install-demo.webp README embed. Renders text slides with ffmpeg drawtext,
+// concatenates them, and emits an MP4 no longer than 90s / 10MB.
+//
+// Honesty contract: every count, command, and output line in `slides` below must
+// be reproducible against this checkout. Verified 2026-07-09:
+//   - registry entry count:  grep '    path:' workflows/registry.yaml  (3 lines)
+//   - workflow JSON count:   find workflows -name '*.json' | wc -l     (5 files)
+//   - governance output:     node scripts/governance-engine.js \
+//                              workflows/dev/pipeline-test-webhook-processor.json
+//                            prints exactly "Governance Check: PASSED", exits 0
+//   - installer contract:    scripts/install-workflow.js prints the new workflow
+//                            id and exits 0 on success (described, not transcribed)
+// Do not add slide lines that show terminal output you did not capture from a
+// real run against the tree.
 
 import {spawnSync} from 'node:child_process';
 import {mkdirSync, writeFileSync, statSync, existsSync, rmSync} from 'node:fs';
@@ -12,6 +24,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..');
 const outDir = join(repoRoot, 'docs');
 const outFile = join(outDir, 'install-demo.mp4');
+const outWebp = join(outDir, 'install-demo.webp');
 const workDir = join(repoRoot, '.work', 'install-demo');
 
 const fontCandidates = [
@@ -33,7 +46,7 @@ const slides = [
     title: 'n8n Workflow Library',
     body: [
       'sanitized, ready-to-import flows',
-      '40 reusable workflows · governance YAML',
+      '3 registry entries, 5 workflow JSON files',
       'one-click install path',
     ],
     seconds: 5,
@@ -42,66 +55,39 @@ const slides = [
   {
     title: '1. Browse the registry',
     body: [
-      '$ cat workflows/registry.yaml | grep slug',
-      '  slug: lead-intake-main',
-      '  slug: lead-enrichment-microservice',
-      '  slug: workflow-test-data-table-api',
+      "$ grep '    path:' workflows/registry.yaml",
+      '    path: "lead-enrichment-microservice.json"',
+      '    path: "lead-intake-main.json"',
+      '    path: "knowledge_management/youtube-rag-pipeline/workflow.json"',
     ],
-    seconds: 6,
+    seconds: 7,
     accent: '0x4a90e2',
   },
   {
-    title: '2. Generate synthetic fixture',
+    title: '2. Install into local n8n',
     body: [
-      '$ node scripts/generate-fixtures.js',
-      '  -> fixtures/lead-intake-main.json',
-      '  -> fixtures/lead-enrichment-microservice.json',
-      '  deterministic · idempotent · valid JSON',
+      '$ node scripts/install-workflow.js workflows/lead-intake-main.json \\',
+      '    --n8n-url http://localhost:5678 --api-key $N8N_API_KEY',
+      '',
+      'on success: prints the new workflow id, exits 0',
     ],
     seconds: 8,
-    accent: '0xf39c12',
-  },
-  {
-    title: '3. Install into local n8n',
-    body: [
-      '$ node scripts/install-workflow.js lead-intake-main \\',
-      '    --n8n-url http://localhost:5678 \\',
-      '    --api-key $N8N_API_KEY',
-      '  POST /rest/workflows -> 201 Created',
-      '  workflow id: 8f3c2e (DEV phase)',
-    ],
-    seconds: 10,
     accent: '0x9b59b6',
   },
   {
-    title: '4. Invoke with the fixture',
+    title: '3. Verify governance',
     body: [
-      '$ curl -X POST http://localhost:5678/webhook/lead-intake \\',
-      '    -H "X-Webhook-Secret: $N8N_WEBHOOK_SECRET" \\',
-      '    -d @fixtures/lead-intake-main.json',
-      '  HTTP/1.1 200 OK',
-      '  {"status":"queued","lead_id":"L-0001"}',
+      '$ node scripts/governance-engine.js \\',
+      '    workflows/dev/pipeline-test-webhook-processor.json',
+      'Governance Check: PASSED',
     ],
-    seconds: 12,
-    accent: '0xe67e22',
-  },
-  {
-    title: '5. Verify governance',
-    body: [
-      '$ node scripts/governance-engine.js --check',
-      '  [PASS] phase tag present (DEV)',
-      '  [PASS] webhook auth required',
-      '  [PASS] secrets scrubbed',
-      '  workflow ready for review',
-    ],
-    seconds: 8,
+    seconds: 7,
     accent: '0x27ae60',
   },
   {
     title: 'Done.',
     body: [
-      'workflow imported · fixture validated',
-      'governance passing · ready to ship',
+      'registry, installer, governance: all in this repo',
       'github.com/wranngle/n8n',
     ],
     seconds: 5,
@@ -115,15 +101,21 @@ const height = 720;
 const fps = 24;
 const font = pickFont();
 
+// The text lands inside text='...' in a filtergraph passed as one argv element
+// (no shell). Two parsers unescape it in sequence: the filtergraph option
+// parser (quotes, backslash escapes) and drawtext's own expansion pass.
+// Frame-verified against ffmpeg 6.1: colon, comma, and brackets take ONE
+// backslash; percent and literal backslash take TWO (one per layer); a quote
+// closes the quoted run, emits an escaped quote, and reopens it.
 function escapeForDrawtext(text) {
   return text
     .replace(/\\/g, '\\\\\\\\')
-    .replace(/:/g, '\\\\:')
-    .replace(/'/g, "\\\\\\'")
+    .replace(/'/g, "'\\\\\\''")
+    .replace(/:/g, '\\:')
     .replace(/%/g, '\\\\%')
     .replace(/,/g, '\\,')
-    .replace(/\[/g, '\\\\[')
-    .replace(/\]/g, '\\\\]');
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]');
 }
 
 function buildSlideFilter(slide) {
@@ -141,8 +133,13 @@ function buildSlideFilter(slide) {
     `drawtext=fontfile='${font}':text='${escapeForDrawtext(slide.title)}':fontcolor=white:fontsize=44:x=80:y=${titleY}`,
   );
   slide.body.forEach((line, index) => {
+    if (line.trim() === '') return; // spacer line, nothing to draw
+    // drawtext drops leading whitespace; preserve indentation via x offset
+    // (16px per space at fontsize 26 monospace).
+    const indent = line.length - line.trimStart().length;
+    const x = 80 + indent * 16;
     filters.push(
-      `drawtext=fontfile='${font}':text='${escapeForDrawtext(line)}':fontcolor=0xd0d6dc:fontsize=26:x=80:y=${bodyStartY + index * lineSpacing}`,
+      `drawtext=fontfile='${font}':text='${escapeForDrawtext(line.trimStart())}':fontcolor=0xd0d6dc:fontsize=26:x=${x}:y=${bodyStartY + index * lineSpacing}`,
     );
   });
   filters.push(
@@ -192,6 +189,24 @@ function concatSegments(segmentFiles) {
   if (result.status !== 0) throw new Error('ffmpeg concat failed');
 }
 
+function renderWebpDerivative() {
+  // 3x-speed 800x450 looping webp of the mp4, for inline README embedding.
+  const args = [
+    '-y',
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-i', outFile,
+    '-vf', 'setpts=PTS/3,fps=10,scale=800:450:flags=lanczos',
+    '-loop', '0',
+    '-c:v', 'libwebp',
+    '-q:v', '60',
+    '-an',
+    outWebp,
+  ];
+  const result = spawnSync('ffmpeg', args, {stdio: 'inherit'});
+  if (result.status !== 0) throw new Error('ffmpeg webp derivative failed');
+}
+
 function main() {
   if (totalSeconds > 90) {
     throw new Error(`Slide budget exceeds 90s (${totalSeconds}s). Adjust slides[].seconds.`);
@@ -207,6 +222,9 @@ function main() {
     throw new Error(`Output exceeds 10MB budget: ${sizeMb.toFixed(2)}MB. Tune CRF/resolution.`);
   }
   console.log(`wrote ${outFile} (${sizeMb.toFixed(2)}MB, ${totalSeconds}s, ${slides.length} slides)`);
+  renderWebpDerivative();
+  const webpMb = statSync(outWebp).size / (1024 * 1024);
+  console.log(`wrote ${outWebp} (${webpMb.toFixed(2)}MB, 3x speed)`);
 }
 
 main();

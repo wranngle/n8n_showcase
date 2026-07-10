@@ -10,12 +10,6 @@ Sanitized n8n workflow library: lead intake, enrichment, post-call processing, a
 - **`tests/`**: workflow integration smoke tests
 - **`context/`**: local knowledge bases (YouTube + Discord research) feeding the workflow generator
 
-## Demo
-
-[![Install walkthrough: registry browse, fixture generation, workflow import, webhook invoke, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
-
-54-second walkthrough at 3x (historical, illustrative only; click through for the full-speed mp4): browse `workflows/registry.yaml` → generate a synthetic fixture → `POST /rest/workflows` → invoke via webhook → governance check. The current checkout ships no `workflows/live-universalized/` fixtures, so the fixture-generation step shown does not run today (see Test fixtures below). Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
-
 ## Fork a workflow
 
 `npm run build:site` walks `workflows/` and emits one fork-landing page per workflow at `dist/site/<slug>/index.html`. Each page carries a Download `.json` link, a placeholder workflow screenshot (`screenshot.svg`), and a one-line problem statement. If a deterministic fixture is present at `fixtures/<slug>.json` (round-1 [#24](https://github.com/wranngle/n8n/pull/24)), the page also links a sample payload so the fork story is end-to-end. Test contract: `npm run test:site`.

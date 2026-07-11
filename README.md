@@ -96,7 +96,7 @@ Voice routing is an external handoff: the agent runtime lives at [`wranngle/voic
 </tr>
 </table>
 
-## 🖼️ On the canvas
+## 📸 On the canvas
 
 The three registry workflows, imported from this repo onto a real n8n editor canvas:
 

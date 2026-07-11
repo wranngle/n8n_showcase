@@ -420,3 +420,6 @@ openspec/
 
 # git_good runtime (per dotfiles doctrine)
 .artifacts/
+
+# SQLite research DBs (research.example.json carries the schema + rebuild recipe)
+*.db

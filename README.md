@@ -1,79 +1,207 @@
-# n8n
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/n8n-wordmark-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/brand/n8n-wordmark-light.png">
+  <img alt="n8n workflow library" src="docs/brand/n8n-wordmark-light.png" width="30%">
+</picture>
 
-> sanitized lead-intake and post-call n8n workflows you can install, govern, and webhook-harden
+#### a workflow library for n8n · lead intake · lead enrichment · post-call processing · webhook security middleware
 
-[![CI](https://github.com/wranngle/n8n/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/wranngle/n8n?color=A371F7)](LICENSE) ![Status](https://img.shields.io/badge/status-active-brightgreen)
+# Install a sanitized, governed n8n workflow in one command
 
-> [!NOTE]
-> Active personal project. Used in my own workflow. Issues triaged on a personal-time cadence.
-
-## Demo
-
-[![Install walkthrough slides: registry browse, workflow install command, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
-
-32-second slide walkthrough at 3x (click through for the full-speed mp4): list the registry's three entries, install a workflow over the n8n REST API, run the governance engine. Every count and output shown comes from a real run against this checkout. Re-render with `node scripts/generate-install-demo.mjs` (ffmpeg required).
-
-## Quick start
+**[Demo](#-demo) | [Quick start](#-quick-start) | [Features](#-features) | [Canvas](#-on-the-canvas) | [Install](#-one-click-install) | [Uninstall](#-uninstall-a-workflow) | [Diff](#-diff-two-workflows) | [Drift](#-drift-detector) | [Governance](#-workflow-governance) | [Security audit](#-security-audit-status)**
 
 ```bash
-git clone https://github.com/wranngle/n8n.git
-cd n8n
-npm install
-
-# Workflow API utilities (require N8N_API_KEY)
-node scripts/list_workflows.js
-node scripts/activate-workflow.js --workflow <id>
-
-# Governance audit (one workflow file per run)
-node scripts/governance-engine.js workflows/dev/pipeline-test-webhook-processor.json
-
-# Webhook security middleware (idempotent, run after creating new workflows)
-node scripts/secure-n8n-webhooks.js --apply
-node scripts/secure-internal-callers.js --apply
+node scripts/install-workflow.js workflows/lead-intake-main.json \
+  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY"
 ```
 
-See [`.env.example`](.env.example) for required environment variables.
+**❤️ [Sponsor this project](https://github.com/sponsors/wranngle) ❤️**
 
-## What's in here
+[![CI](https://github.com/wranngle/n8n/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/wranngle/n8n?color=A371F7)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/wranngle/n8n)](https://github.com/wranngle/n8n/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/wranngle/n8n)](https://github.com/wranngle/n8n/graphs/contributors)
 
-- **`workflows/`**: production flows ([`lead-intake-main.json`](workflows/lead-intake-main.json), [`lead-enrichment-microservice.json`](workflows/lead-enrichment-microservice.json), `dev/`, `knowledge_management/youtube-rag-pipeline/`) plus governance + registry YAMLs
-- **`scripts/`**: workflow API utilities ([`activate-workflow.js`](scripts/activate-workflow.js), [`list_workflows.js`](scripts/list_workflows.js), `update_workflow.py`, etc.), governance ([`governance-engine.js`](scripts/governance-engine.js)), and webhook security ([`secure-n8n-webhooks.js`](scripts/secure-n8n-webhooks.js), [`secure-internal-callers.js`](scripts/secure-internal-callers.js))
-- **`templates/`**: generic n8n templates
-- **`tests/`**: workflow integration smoke tests
-- **`context/`**: local knowledge bases (YouTube + Discord research) feeding the workflow generator
+[![GitHub stars](https://img.shields.io/github/stars/wranngle/n8n?style=social)](https://github.com/wranngle/n8n/stargazers)
+[![Follow on GitHub](https://img.shields.io/github/followers/wranngle?style=social)](https://github.com/wranngle)
+</div>
 
-The checked-in workflows are generic n8n. The registry still carries legacy voice-agent workflow metadata (ElevenLabs business process, integration entries), but the live agent runtime lives at [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals).
+---
 
-## Fork a workflow
+## 🎬 Demo
 
-`npm run build:site` walks `workflows/` and emits one fork-landing page per workflow at `dist/site/<slug>/index.html`. Each page carries a Download `.json` link, a placeholder workflow screenshot (`screenshot.svg`), and a one-line problem statement. If a deterministic fixture is present at `fixtures/<slug>.json` (round-1 [#24](https://github.com/wranngle/n8n/pull/24)), the page also links a sample payload so the fork story is end-to-end. Test contract: `npm run test:site`.
+[![Install walkthrough: registry browse, workflow install command, governance check](docs/install-demo.webp)](docs/install-demo.mp4)
 
-## Architecture
+*Registry list, REST API install, governance check, 3x speed.*
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the lead intake → CRM → call → post-call flow and how this repo connects to its satellites:
+**This is a workflow library for [n8n](https://n8n.io), not the n8n product itself.** It holds sanitized lead-intake and post-call n8n workflows you can install, govern, and webhook-harden: 3 registry entries, 5 checked-in workflow JSON files, and the toolchain that installs, uninstalls, diffs, lints, and drift-checks them against a live instance. `main` is protected by 6 required status checks.
 
-- [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals): eval harness for ElevenLabs voice agents (the production agent runtime, prompt versioning, scenario framework)
-- [`wranngle/gtm_ops`](https://github.com/wranngle/gtm_ops): unified GTM motion runtime (presales pipeline, ops-console, audit log surface)
+## 🪝 Features
 
-## Webhook authentication
+- 🪝 **One-click install**: `scripts/install-workflow.js` imports a workflow JSON over the n8n REST API and prints the new workflow id.
+- 🪝 **Uninstall with dry-run**: `bin/uninstall-workflow.js` deletes matches by name or id; `--dry-run` prints the exact API calls without mutating anything.
+- 🪝 **Deterministic diff**: `scripts/n8n-diff.js` renders a markdown diff of nodes, connections, and env-var changes between two workflow files.
+- 🪝 **Drift detector**: `bin/drift.js` compares workflows deployed on an instance against the repo and exits non-zero on any drift, so it can gate CI.
+- 🪝 **Governance engine**: `scripts/governance-engine.js` enforces DEV and ARCHIVED phase rules and prints a single-line PASS or FAIL.
+- 🪝 **Webhook hardening**: `scripts/secure-n8n-webhooks.js` and `scripts/secure-internal-callers.js` stamp shared-secret validation onto webhook surfaces, idempotently.
+- 🪝 **Custom lint**: `bin/n8n-lint.js` ships 4 rules (hardcoded secrets, missing error handler, PII in node names, retry without idempotency) plus `--list-rules`.
+- 🪝 **Fork-landing site**: `npm run build:site` emits one download page per workflow.
 
-The hardening scripts can add an `X-Webhook-Secret` header, validated against `N8N_WEBHOOK_SECRET`, but not every checked-in workflow is currently hardened. See [`docs/WEBHOOK_AUTH.md`](docs/WEBHOOK_AUTH.md) for the rotation playbook. ElevenLabs HMAC-signed webhooks (different protocol, HMAC-SHA256 over `<timestamp>.<body>`) are handled in `voice_ai_agent_evals`.
+## 🧭 Where these workflows sit
 
-## Test fixtures
+```mermaid
+flowchart LR
+    A["Lead intake"] --> B["Enrichment"]
+    B --> C["Voice routing, external handoff"]
+    C --> D["Post-call"]
+```
 
-[`scripts/generate-fixtures.js`](scripts/generate-fixtures.js) emits fixtures only for `workflows/live-universalized/` entries; the current checkout has none. When entries exist, it writes one deterministic synthetic payload per workflow into `fixtures/`, keyed by registry slug. The generator inspects each workflow's trigger node (webhook, form, schedule, manual, evaluation, pipedrive) and shapes the payload accordingly so every importable workflow can be smoke-tested without touching tenant data. Re-running the script over a clean checkout produces zero diff: fixture drift is the signal, not the noise.
+Voice routing is an external handoff: the agent runtime lives at [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals). This repo owns the workflow surfaces on both sides of it. The full picture is in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-## Workflow governance
+## 🚀 Quick start
+
+1. Clone and install:
+
+   ```bash
+   git clone https://github.com/wranngle/n8n.git
+   cd n8n
+   npm install
+   ```
+
+2. Point at your n8n instance via `N8N_URL` and `N8N_API_KEY` (see [`.env.example`](.env.example)).
+
+3. Install a workflow:
+
+   ```bash
+   node scripts/install-workflow.js workflows/lead-intake-main.json
+   ```
+
+4. Run the governance check on it:
+
+   ```bash
+   node scripts/governance-engine.js workflows/dev/pipeline-test-webhook-processor.json
+   ```
+
+## 🪝 The four surfaces
+
+<table>
+<tr>
+<td align="center" width="50%"><b>Lead intake</b><br/>webhook-triggered intake flow, <code>lead-intake-main</code>, 5 nodes</td>
+<td align="center" width="50%"><b>Lead enrichment</b><br/>centralized Clay AI enrichment microservice, 5 nodes</td>
+</tr>
+<tr>
+<td align="center" width="50%"><b>Post-call processing</b><br/>webhook processing downstream of the external voice handoff</td>
+<td align="center" width="50%"><b>Webhook security middleware</b><br/>two idempotent scripts stamping <code>X-Webhook-Secret</code> validation</td>
+</tr>
+</table>
+
+## 🖼️ On the canvas
+
+The three registry workflows, imported from this repo onto a real n8n editor canvas:
+
+![Wranngle Lead Intake (Centralized) on the n8n canvas](docs/brand/lead-intake-main-canvas.png)
+
+*lead-intake-main, 5 nodes ([counts](docs/brand/canvas-measurements.json)).*
+
+![Lead Enrichment Microservice (Clay) on the n8n canvas](docs/brand/lead-enrichment-microservice-canvas.png)
+
+*lead-enrichment-microservice, 5 nodes.*
+
+![YouTube RAG Pipeline on the n8n canvas](docs/brand/youtube-rag-pipeline-canvas.png)
+
+*youtube-rag-pipeline, 8 nodes.*
+
+## 📦 What's in here
+
+- **`workflows/`**: 5 workflow JSON files ([`lead-intake-main.json`](workflows/lead-intake-main.json), [`lead-enrichment-microservice.json`](workflows/lead-enrichment-microservice.json), `dev/`, `knowledge_management/youtube-rag-pipeline/`) plus the [`registry.yaml`](workflows/registry.yaml) that indexes 3 of them
+- **`scripts/`**: installer, diff, governance engine, webhook hardening, and workflow API utilities
+- **`bin/` + `lib/`**: drift detector, lint rules, uninstaller
+- **`tests/`**: 56 bats tests across 7 files
+- **`docs/`**: webhook auth rotation playbook and the install demo media
+
+## ⚡ One-click install
+
+Import a workflow JSON into a local n8n instance via its REST API:
+
+```bash
+node scripts/install-workflow.js workflows/lead-intake-main.json \
+  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY"
+```
+
+On success the script prints the new workflow id and exits 0. `--n8n-url` and `--api-key` may also be supplied via `N8N_URL` / `N8N_API_KEY` env vars.
+
+## 🧹 Uninstall a workflow
+
+The reverse of the installer. Looks up workflows on the remote n8n instance and deletes each match.
+
+```bash
+# Preview what would be deleted
+node bin/uninstall-workflow.js --name lead-intake-main \
+  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY" --dry-run
+
+# Delete by id
+node bin/uninstall-workflow.js --id wf-42 \
+  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY"
+```
+
+Exits non-zero if no workflows match or any `DELETE` fails.
+
+## 🔍 Diff two workflows
+
+A deterministic markdown diff between two workflow JSON files: nodes added, removed, and modified, connection delta, and env-var changes. Pair it with the installer for a review-before-you-ship pre-merge check.
+
+```bash
+node scripts/n8n-diff.js workflows/a.json workflows/b.json
+node scripts/n8n-diff.js workflows/a.json workflows/b.json --out diff.md
+```
+
+Try it against the bundled fixture pair:
+
+```bash
+node scripts/n8n-diff.js fixtures/diff/a.json fixtures/diff/b.json
+```
+
+## 📡 Drift detector
+
+Compare workflows deployed on an n8n instance against the JSON files tracked in this repo:
+
+```bash
+node bin/drift.js --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY" \
+  --workflows-dir ./workflows --out drift.md
+```
+
+The report groups results into `Only on instance`, `Only in repo`, and `Modified` (matched by `name`, compared via a canonical fingerprint that ignores `id`, `updatedAt`, and `active`). Exits non-zero when any drift is detected.
+
+## 🌐 Fork a workflow
+
+`npm run build:site` walks `workflows/` and emits one fork-landing page per workflow at `dist/site/<slug>/index.html`, each with a Download `.json` link and a one-line problem statement. Test contract: `npm run test:site`.
+
+## 🔐 Webhook authentication
+
+The hardening scripts add an `X-Webhook-Secret` header, validated against `N8N_WEBHOOK_SECRET`, but not every checked-in workflow is currently hardened. Rotation playbook: [`docs/WEBHOOK_AUTH.md`](docs/WEBHOOK_AUTH.md).
+
+## 📜 Workflow governance
 
 - **DEV**: all active development. Modifiable.
 - **ARCHIVED**: deprecated, read-only. Deletion is blocked; archive instead.
 - New workflows auto-tag as DEV.
 
-`workflows/governance.yaml` is the authoritative phase tracker; `scripts/governance-engine.js` enforces it. See [`WORKFLOWS.md`](WORKFLOWS.md) for the per-workflow index.
+<details>
+<summary>Governance check output</summary>
 
-## Security audit status
+```text
+$ node scripts/governance-engine.js workflows/dev/pipeline-test-webhook-processor.json
+Governance Check: PASSED
+```
 
-Each workflow in `workflows/registry.yaml` carries a `security.audited` ISO date and a `security.scanner` tag. The table below is regenerated by [`scripts/generate-readme-table.js`](scripts/generate-readme-table.js); rerun it whenever an audit date is bumped, and `node scripts/generate-readme-table.js --check` exits non-zero if the table drifts from the registry.
+A violation prints the failure and exits 1.
+
+</details>
+
+## ✅ Security audit status
+
+Each entry in [`workflows/registry.yaml`](workflows/registry.yaml) carries a `security.audited` ISO date and a `security.scanner` tag; `node scripts/generate-readme-table.js --check` exits non-zero if the table below drifts from the registry.
 
 <!-- BEGIN SECURITY AUDIT TABLE -->
 
@@ -86,66 +214,15 @@ _Freshness reference: 2026-05-14. Entries audited within the last 90 days render
 | `youtube-rag-pipeline` | ![audited](https://img.shields.io/badge/audited-2026--05--14-brightgreen) | gitleaks+verify |
 <!-- END SECURITY AUDIT TABLE -->
 
+## ⭐ Star history
 
-## One-click install
+<!--
+Restore this line when api.star-history.com recovers from its outage:
+[![Star History Chart](https://api.star-history.com/svg?repos=wranngle/n8n&type=Date)](https://www.star-history.com/#wranngle/n8n&Date)
+-->
 
-Import a workflow JSON into a local n8n instance via its REST API:
+[Star history for wranngle/n8n](https://www.star-history.com/#wranngle/n8n&Date)
 
-```bash
-node scripts/install-workflow.js workflows/lead-intake-main.json \
-  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY"
-```
+## 📄 License
 
-On success the script prints the new workflow id and exits 0. `--n8n-url` and `--api-key` may also be supplied via `N8N_URL` / `N8N_API_KEY` env vars.
-
-## Uninstall a workflow
-
-Reverse of `scripts/install-workflow.js`. Looks up workflows on the remote
-n8n instance and deletes each match. `--dry-run` prints the exact API calls
-without mutating anything.
-
-```bash
-# Preview what would be deleted
-node bin/uninstall-workflow.js --name lead-intake-main \
-  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY" --dry-run
-
-# Delete by id
-node bin/uninstall-workflow.js --id wf-42 \
-  --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY"
-```
-
-`--n8n-url` and `--api-key` also accept `N8N_URL` / `N8N_API_KEY` env vars.
-Exits non-zero if no workflows match or any `DELETE` fails.
-
-## Diff two workflows
-
-`scripts/n8n-diff.js` renders a deterministic markdown diff between two
-workflow JSON files: nodes added/removed/modified, connection delta, and
-env-var changes. Pair it with the one-click installer above for a "review
-before you ship" pre-merge check.
-
-```bash
-node scripts/n8n-diff.js workflows/a.json workflows/b.json
-node scripts/n8n-diff.js workflows/a.json workflows/b.json --out diff.md
-```
-
-Demo against the bundled fixture pair:
-
-```bash
-node scripts/n8n-diff.js fixtures/diff/a.json fixtures/diff/b.json
-```
-
-## Drift detector
-
-Compare workflows deployed on an n8n instance against the JSON files tracked in this repo:
-
-```bash
-node bin/drift.js --n8n-url http://localhost:5678 --api-key "$N8N_API_KEY" \
-  --workflows-dir ./workflows --out drift.md
-```
-
-The report (`drift.md`) groups results into three sections: `Only on instance`, `Only in repo`, and `Modified` (matched by `name`, compared via canonical fingerprint that ignores `id`/`updatedAt`/`active`). The script exits non-zero when any drift is detected so it can gate CI.
-
-## License
-
-See [`LICENSE`](LICENSE).
+MIT. See [`LICENSE`](LICENSE).

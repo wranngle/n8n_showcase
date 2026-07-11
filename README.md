@@ -102,7 +102,7 @@ The three registry workflows, imported from this repo onto a real n8n editor can
 
 ![Wranngle Lead Intake (Centralized) on the n8n canvas](docs/brand/lead-intake-main-canvas.png)
 
-*lead-intake-main, 5 nodes ([counts](docs/brand/canvas-measurements.json)).*
+*lead-intake-main, 5 nodes.*
 
 ![Lead Enrichment Microservice (Clay) on the n8n canvas](docs/brand/lead-enrichment-microservice-canvas.png)
 

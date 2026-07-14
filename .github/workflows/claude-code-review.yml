@@ -19,6 +19,9 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
+    # Claude GitHub App installation is currently suspended; do not fail PRs
+    # on this job until the operator resumes it in GitHub settings.
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: read

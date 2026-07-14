@@ -1,26 +1,25 @@
 # Automation Contract
 
-This repo is dotfiles-managed. The primitive contract lives in
-`.automation/policy.json`; generated workflows, labels, repo settings, and local
-autosync behavior should converge on that file.
+Two layers of automation touch this repo; both are local-first and neither
+pushes on your behalf.
 
-## Loop
+## Local checkpoints (git_good)
 
-1. Observe local Git state without reading secrets or large diffs.
-2. Checkpoint dirty work to a neutral `wip/local/<branch>` ref, or an explicit `wip/<namespace>/<branch>` ref.
-3. Integrate only after the tree is quiet and required checks are green.
-4. Prefer GitHub auto-merge with squash and branch deletion.
-5. Repair tree-equivalent local divergence after squash merges.
-6. Stop on semantic conflicts, active leases, unsafe Git states, or secrets.
+A machine-global cron (`git_good sync`, every 15 minutes) snapshots dirty
+work as a git stash checkpoint and immediately restores the worktree. No
+remote refs, no PRs, no per-repo policy files — defaults are hardcoded in
+the binary. Runtime evidence lands in `.artifacts/git_good/` (gitignored):
+an ECS-shaped JSONL event ledger, flat `stash.<uuid>.patch` archives, and
+per-session guard baselines. If a restore ever fails, the ledger records
+`sync.restore-fail` and the checkpoint stash is kept for manual recovery.
 
-## Local Commands
+## Integration (GitHub)
 
-```bash
-repo-automation.sh observe
-repo-automation.sh doctor
-repo-automation.sh policy
-```
-
-`.autosync/policy.env`, `.autosync/pause`, and `.autosync/lease.json` are
-per-repo overrides. The generated contract is the default; local overrides are
-for explicit temporary exceptions.
+- All changes land through PRs against `main`; direct pushes are blocked.
+- `main` requires six status checks: `shell-lint`, `yaml-lint`, `test`,
+  `gitleaks`, `actionlint`, `zizmor`. The `test` check runs the full bats
+  suite (`npm test`).
+- Merges use GitHub auto-merge with squash and branch deletion
+  (`gh pr merge --auto --squash`).
+- Dependabot keeps GitHub Actions pinned and current; gitleaks scans both
+  pre-commit (lefthook) and in CI.

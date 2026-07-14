@@ -1,5 +1,5 @@
 {
-  "_comment": "workflows_list.example.json — synthetic placeholder for the gitignored workflows_list.json. Copy to workflows_list.json and refresh via `node scripts/list_workflows.js` against a real n8n instance. The real file is gitignored — past dumps had verified live API keys, so we never re-add it.",
+  "_comment": "workflows_list.example.json — synthetic placeholder for the gitignored workflows_list.json. Copy to workflows_list.json and refresh via `node scripts/list-workflows.js` against a real n8n instance. The real file is gitignored — past dumps had verified live API keys, so we never re-add it.",
   "_shape": "Array of n8n workflow summaries as returned by GET /rest/workflows from the n8n cloud instance. Reviewer-facing demo: shows the schema, no real workflow ids or credentials.",
   "workflows": [
     {

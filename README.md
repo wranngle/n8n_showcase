@@ -19,6 +19,7 @@ node scripts/install-workflow.js workflows/lead-intake-main.json \
 **❤️ [Sponsor this project](https://github.com/sponsors/wranngle) ❤️**
 
 [![CI](https://github.com/wranngle/n8n_showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n_showcase/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/wranngle/n8n_showcase?color=A371F7)](https://github.com/wranngle/n8n_showcase/releases/latest)
 [![License](https://img.shields.io/github/license/wranngle/n8n_showcase?color=A371F7)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/wranngle/n8n_showcase)](https://github.com/wranngle/n8n_showcase/commits/main)
 [![Contributors](https://img.shields.io/github/contributors/wranngle/n8n_showcase)](https://github.com/wranngle/n8n_showcase/graphs/contributors)
@@ -82,6 +83,8 @@ Voice routing is an external handoff: the agent runtime lives at [`wranngle/voic
    ```bash
    node scripts/governance-engine.js workflows/dev/pipeline-test-webhook-processor.json
    ```
+
+Prefer global CLIs? `npm install -g github:wranngle/n8n_showcase` puts `n8n-showcase-drift`, `n8n-showcase-lint`, and `n8n-showcase-uninstall` on your PATH.
 
 ## 🪝 The four surfaces
 

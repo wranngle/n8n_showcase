@@ -32,7 +32,7 @@ This repo is a sanitized library of generic n8n workflows: lead intake, CRM enri
 ## Repo surface
 
 ```
-n8n/
+n8n_showcase/
 ├── workflows/
 │   ├── lead-intake-main.json
 │   ├── lead-enrichment-microservice.json
@@ -40,25 +40,22 @@ n8n/
 │   ├── knowledge_management/         # generic knowledge pipelines
 │   ├── governance.yaml               # phase tracking (DEV / ARCHIVED)
 │   └── registry.yaml
-├── scripts/                          # workflow API utilities, governance, security
-│   ├── activate-workflow.js
+├── bin/                              # CLI entrypoints: drift, lint, uninstall
+├── lib/                              # engines behind bin/
+├── scripts/                          # installer, diff, governance, security, site
+│   ├── install-workflow.js
+│   ├── n8n-diff.js
+│   ├── governance-engine.js
 │   ├── secure-n8n-webhooks.js        # apply X-Webhook-Secret middleware
 │   ├── secure-internal-callers.js    # patch HTTP Request nodes
-│   ├── governance-engine.js
-│   ├── enforce-governance.ps1
-│   ├── list_workflows.js / .py
-│   ├── update_workflow.py
-│   └── lib/
-├── templates/                        # generic n8n templates
-├── tests/
-├── context/                          # local knowledge bases (YouTube, Discord)
-├── docs/
-│   ├── index.md
-│   └── WEBHOOK_AUTH.md
-└── openspec/
-    ├── AGENTS.md
-    ├── project.md
-    └── specs/
+│   └── lib/                          # env loader, diff engine
+├── templates/                        # fork-landing page template
+├── tests/                            # bats suites (56 tests)
+├── fixtures/                         # diff / drift / lint test fixtures
+└── docs/
+    ├── index.md
+    ├── WEBHOOK_AUTH.md
+    └── brand/                        # wordmark + canvas screenshots
 ```
 
 ## Workflow governance

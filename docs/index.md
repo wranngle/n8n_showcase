@@ -1,4 +1,4 @@
-# n8n workflow library — documentation
+# n8n_showcase — documentation
 
 This repo is the canonical sanitized n8n workflow library: lead intake, enrichment, post-call processing, security middleware. Generic n8n surface only — voice-agent / ElevenLabs-specific code lives at [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals).
 
@@ -16,6 +16,5 @@ The repo enforces a DEV-only modification policy (active workflows live in `work
 ## Related resources
 
 - [n8n documentation](https://docs.n8n.io/)
-- `context/` — local knowledge bases the workflow generator consumes
 - `workflows/governance.yaml` — workflow phase tracking
 - `scripts/` — workflow API utilities, security middleware, governance

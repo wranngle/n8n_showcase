@@ -1,4 +1,4 @@
-# AGENTS.md — n8n project
+# AGENTS.md — n8n_showcase project
 
 > Project-specific guidelines for any AI agent (Claude Code, Codex CLI, Gemini CLI) operating in this repo. Universal rules live in `~/.claude/CLAUDE.md`; this file only covers n8n-specific judgment.
 
@@ -91,23 +91,3 @@ Whenever you run a test suite end-to-end, finish with a structured summary so th
 ```
 A bare "tests passed" line without counts is insufficient — it can't be diffed against the previous run.
 
----
-
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->

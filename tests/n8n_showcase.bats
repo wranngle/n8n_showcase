@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# tests/n8n.bats — single test file per project.
+# tests/n8n_showcase.bats — single test file per project.
 #
 # Covers:
 #   - scripts/generate-fixtures.js: synthetic-fixture generator contract

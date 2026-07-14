@@ -99,3 +99,12 @@ jobs:
             echo "no language toolchain detected — running smoke check only"
             ls -la
           fi
+      - name: verify-and-lint-scripts
+        if: ${{ hashFiles('scripts/verify-workflows.js') != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run verify
+          for f in scripts/*.js scripts/lib/*.js bin/*.js; do
+            if [ -f "$f" ]; then node --check "$f"; fi
+          done

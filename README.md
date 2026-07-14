@@ -208,13 +208,13 @@ Each entry in [`workflows/registry.yaml`](workflows/registry.yaml) carries a `se
 
 <!-- BEGIN SECURITY AUDIT TABLE -->
 
-_Freshness reference: 2026-05-14. Entries audited within the last 90 days render green._
+_Freshness reference: 2026-07-13. Entries audited within the last 90 days render green._
 
 | Workflow | Audit status | Scanner |
 | --- | --- | --- |
-| `lead-enrichment-microservice` | ![audited](https://img.shields.io/badge/audited-2026--05--14-brightgreen) | gitleaks+verify |
-| `lead-intake-main` | ![audited](https://img.shields.io/badge/audited-2026--05--14-brightgreen) | gitleaks+verify |
-| `youtube-rag-pipeline` | ![audited](https://img.shields.io/badge/audited-2026--05--14-brightgreen) | gitleaks+verify |
+| `lead-enrichment-microservice` | ![audited](https://img.shields.io/badge/audited-2026--07--13-brightgreen) | gitleaks+verify |
+| `lead-intake-main` | ![audited](https://img.shields.io/badge/audited-2026--07--13-brightgreen) | gitleaks+verify |
+| `youtube-rag-pipeline` | ![audited](https://img.shields.io/badge/audited-2026--07--13-brightgreen) | gitleaks+verify |
 <!-- END SECURITY AUDIT TABLE -->
 
 ## ⭐ Star history

@@ -1,19 +1,18 @@
 #!/usr/bin/env node
 /**
- * Find every n8n HTTP Request node that targets another n8n webhook
- * (n8n.wranngle.com/webhook/...) and bind it to the shared X-Webhook-Secret
- * credential. Idempotent.
+ * Find every n8n HTTP Request node that targets another n8n webhook on the
+ * same instance (<N8N_URL host>/webhook/...) and bind it to the shared
+ * X-Webhook-Secret credential. Idempotent.
  *
  * Usage:
  *   node scripts/secure-internal-callers.js              # dry-run
  *   node scripts/secure-internal-callers.js --apply
  */
 
-const https = require('https');
 const env = require('./lib/env');
 
 const APPLY = process.argv.includes('--apply');
-const HOST = 'n8n.wranngle.com';
+const { client, hostname: HOST, port: PORT } = env.n8nTarget();
 const API_KEY = env.require('N8N_API_KEY');
 const CRED_ID = env.require('N8N_WEBHOOK_AUTH_CRED_ID');
 const CRED_NAME = 'X-Webhook-Secret (shared)';
@@ -21,8 +20,8 @@ const CRED_NAME = 'X-Webhook-Secret (shared)';
 function request(method, path, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
-    const req = https.request({
-      hostname: HOST, path, method,
+    const req = client.request({
+      hostname: HOST, port: PORT, path, method,
       headers: {
         'X-N8N-API-KEY': API_KEY,
         'Content-Type': 'application/json',
@@ -47,12 +46,15 @@ function pickPutBody(w) {
 }
 
 // Match HTTP Request nodes that target another n8n webhook on this tenant.
+const INTERNAL_WEBHOOK = new RegExp(
+  HOST.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?::\\d+)?/webhook/',
+);
 function isInternalN8nCall(node) {
   if (node.type !== 'n8n-nodes-base.httpRequest') return false;
   const url = node.parameters?.url;
   if (!url || typeof url !== 'string') return false;
-  // Match literal n8n.wranngle.com/webhook/ AND expressions that include /webhook/ on a wranngle domain.
-  return /n8n\.wranngle\.com\/webhook\//.test(url);
+  // Match literal <instance-host>/webhook/ AND expressions that include it.
+  return INTERNAL_WEBHOOK.test(url);
 }
 
 function patchHttpNode(node) {

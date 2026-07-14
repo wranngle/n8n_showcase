@@ -1,7 +1,7 @@
-const https = require('https');
 const env = require('./lib/env');
 
 const apiKey = env.require('N8N_API_KEY');
+const { client, hostname, port } = env.n8nTarget();
 
 const twilioCredential = {
     name: "Twilio API Credentials",
@@ -19,8 +19,8 @@ const postData = JSON.stringify(twilioCredential);
 console.log('Sending:', postData);
 
 const options = {
-    hostname: 'n8n.wranngle.com',
-    port: 443,
+    hostname,
+    port,
     path: '/api/v1/credentials',
     method: 'POST',
     headers: {
@@ -30,7 +30,7 @@ const options = {
     }
 };
 
-const req = https.request(options, (res) => {
+const req = client.request(options, (res) => {
     let data = '';
     res.on('data', (chunk) => { data += chunk; });
     res.on('end', () => {

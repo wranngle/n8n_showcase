@@ -110,9 +110,9 @@ Workflow `automerge.yml` arms GitHub auto-merge for:
 - Dependabot semver patch/minor version updates
 
 The bootstrap enables repo auto-merge, branch deletion after merge, squash merge,
-and default-branch protection with the required checks from
-`.automation/policy.json`. The local autosync loop does not fall back to an
-immediate merge when that policy says `require_green=true`.
+and default-branch protection with six required checks (`shell-lint`,
+`yaml-lint`, `test`, `gitleaks`, `actionlint`, `zizmor`). Nothing merges
+until those are green.
 
 ## Why not labels for status/priority/effort?
 

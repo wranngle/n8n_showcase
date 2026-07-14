@@ -9,11 +9,10 @@
  *   node scripts/secure-n8n-webhooks.js --apply      # actually mutate
  */
 
-const https = require('https');
 const env = require('./lib/env');
 
 const APPLY = process.argv.includes('--apply');
-const HOST = 'n8n.wranngle.com';
+const { client, hostname: HOST, port: PORT } = env.n8nTarget();
 const API_KEY = env.require('N8N_API_KEY');
 const SECRET = env.require('N8N_WEBHOOK_SECRET');
 const CRED_NAME = 'X-Webhook-Secret (shared)';
@@ -30,8 +29,8 @@ const HMAC_EXEMPT = new Set([
 function request(method, path, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
-    const req = https.request({
-      hostname: HOST, path, method,
+    const req = client.request({
+      hostname: HOST, port: PORT, path, method,
       headers: {
         'X-N8N-API-KEY': API_KEY,
         'Content-Type': 'application/json',

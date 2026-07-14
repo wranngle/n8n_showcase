@@ -1,13 +1,23 @@
 {
-  "name": "n8n-workflow-development",
+  "name": "n8n-showcase",
   "version": "2.0.0",
-  "description": "n8n Workflow Development Command Center - Hook-driven deterministic methodology",
+  "description": "n8n workflow showcase: install, govern, diff, lint, and drift-check sanitized lead-intake and post-call workflows",
   "private": true,
   "type": "commonjs",
   "scripts": {
+    "test": "bats tests",
     "verify": "node scripts/verify-workflows.js",
     "build:site": "node scripts/build-site.js",
     "test:site": "bats tests/site.bats"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wranngle/n8n_showcase.git"
+  },
+  "bin": {
+    "n8n-showcase-drift": "bin/drift.js",
+    "n8n-showcase-lint": "bin/n8n-lint.js",
+    "n8n-showcase-uninstall": "bin/uninstall-workflow.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0"

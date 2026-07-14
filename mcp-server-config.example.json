@@ -1,7 +1,7 @@
 {
   "_comment": "mcp-server-config.example.json — synthetic placeholder for the gitignored mcp-server-config.json. Copy to mcp-server-config.json and fill in the locally-hosted MCP server's listener config. Gitignored because it can contain auth bindings for sibling MCP processes.",
   "server": {
-    "name": "wranngle-n8n-mcp",
+    "name": "wranngle-n8n-showcase-mcp",
     "version": "0.1.0",
     "transport": "stdio",
     "logLevel": "info"

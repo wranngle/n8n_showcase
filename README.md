@@ -1,8 +1,8 @@
 <div align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/n8n-wordmark-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="docs/brand/n8n-wordmark-light.png">
-  <img alt="n8n workflow library" src="docs/brand/n8n-wordmark-light.png" width="30%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/showcase-wordmark-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/brand/showcase-wordmark-light.png">
+  <img alt="n8n_showcase — a workflow library for n8n" src="docs/brand/showcase-wordmark-light.png" width="42%">
 </picture>
 
 #### a workflow library for n8n · lead intake · lead enrichment · post-call processing · webhook security middleware
@@ -18,12 +18,12 @@ node scripts/install-workflow.js workflows/lead-intake-main.json \
 
 **❤️ [Sponsor this project](https://github.com/sponsors/wranngle) ❤️**
 
-[![CI](https://github.com/wranngle/n8n/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/wranngle/n8n?color=A371F7)](LICENSE)
-[![Last commit](https://img.shields.io/github/last-commit/wranngle/n8n)](https://github.com/wranngle/n8n/commits/main)
-[![Contributors](https://img.shields.io/github/contributors/wranngle/n8n)](https://github.com/wranngle/n8n/graphs/contributors)
+[![CI](https://github.com/wranngle/n8n_showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/wranngle/n8n_showcase/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/wranngle/n8n_showcase?color=A371F7)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/wranngle/n8n_showcase)](https://github.com/wranngle/n8n_showcase/commits/main)
+[![Contributors](https://img.shields.io/github/contributors/wranngle/n8n_showcase)](https://github.com/wranngle/n8n_showcase/graphs/contributors)
 
-[![GitHub stars](https://img.shields.io/github/stars/wranngle/n8n?style=social)](https://github.com/wranngle/n8n/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/wranngle/n8n_showcase?style=social)](https://github.com/wranngle/n8n_showcase/stargazers)
 [![Follow on GitHub](https://img.shields.io/github/followers/wranngle?style=social)](https://github.com/wranngle)
 </div>
 
@@ -64,8 +64,8 @@ Voice routing is an external handoff: the agent runtime lives at [`wranngle/voic
 1. Clone and install:
 
    ```bash
-   git clone https://github.com/wranngle/n8n.git
-   cd n8n
+   git clone https://github.com/wranngle/n8n_showcase.git
+   cd n8n_showcase
    npm install
    ```
 
@@ -218,10 +218,10 @@ _Freshness reference: 2026-05-14. Entries audited within the last 90 days render
 
 <!--
 Restore this line when api.star-history.com recovers from its outage:
-[![Star History Chart](https://api.star-history.com/svg?repos=wranngle/n8n&type=Date)](https://www.star-history.com/#wranngle/n8n&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=wranngle/n8n_showcase&type=Date)](https://www.star-history.com/#wranngle/n8n_showcase&Date)
 -->
 
-[Star history for wranngle/n8n](https://www.star-history.com/#wranngle/n8n&Date)
+[Star history for wranngle/n8n_showcase](https://www.star-history.com/#wranngle/n8n_showcase&Date)
 
 ## 📄 License
 

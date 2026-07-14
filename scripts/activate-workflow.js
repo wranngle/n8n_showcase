@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-const https = require('https');
 const env = require('./lib/env');
 
 const workflowId = process.argv[2];
@@ -9,9 +8,11 @@ if (!workflowId) {
 }
 
 const apiKey = env.require('N8N_API_KEY');
+const { client, hostname, port } = env.n8nTarget();
 
-const req = https.request({
-  hostname: 'n8n.wranngle.com',
+const req = client.request({
+  hostname,
+  port,
   path: `/api/v1/workflows/${workflowId}/activate`,
   method: 'POST',
   headers: { 'X-N8N-API-KEY': apiKey }

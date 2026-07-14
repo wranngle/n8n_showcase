@@ -4,24 +4,28 @@
  * The n8n-mcp tool creates connections with "type": "0" instead of "type": "main"
  */
 
-const https = require('https');
-const fs = require('fs');
 const env = require('./lib/env');
 
 const apiKey = env.require('N8N_API_KEY');
-const workflowId = process.argv[2] || 'cEORduJCqCVDOKce';
+const { client, hostname, port } = env.n8nTarget();
+const workflowId = process.argv[2];
+if (!workflowId) {
+  console.error('Usage: node fix-workflow-connections.js <workflow-id>');
+  process.exit(1);
+}
 
 console.log('Fixing workflow:', workflowId);
 
 // Get the workflow
 const getOptions = {
-  hostname: 'n8n.wranngle.com',
+  hostname,
+  port,
   path: '/api/v1/workflows/' + workflowId,
   method: 'GET',
   headers: { 'X-N8N-API-KEY': apiKey }
 };
 
-https.request(getOptions, (res) => {
+client.request(getOptions, (res) => {
   let data = '';
   res.on('data', chunk => data += chunk);
   res.on('end', () => {
@@ -82,7 +86,8 @@ https.request(getOptions, (res) => {
     });
 
     const updateOptions = {
-      hostname: 'n8n.wranngle.com',
+      hostname,
+      port,
       path: '/api/v1/workflows/' + workflowId,
       method: 'PUT',
       headers: {
@@ -92,7 +97,7 @@ https.request(getOptions, (res) => {
       }
     };
 
-    const updateReq = https.request(updateOptions, (updateRes) => {
+    const updateReq = client.request(updateOptions, (updateRes) => {
       let updateData = '';
       updateRes.on('data', chunk => updateData += chunk);
       updateRes.on('end', () => {

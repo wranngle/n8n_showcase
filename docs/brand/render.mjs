@@ -1,4 +1,4 @@
-// Regenerates docs/brand/n8n-wordmark-{light,dark}.png from wordmark.html.
+// Regenerates docs/brand/showcase-wordmark-{light,dark}.png from wordmark.html.
 // Usage: npm install playwright && node docs/brand/render.mjs
 import { chromium } from 'playwright';
 import path from 'node:path';
@@ -8,8 +8,8 @@ const outDir = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.join(outDir, 'wordmark.html');
 
 const variants = [
-  { name: 'light', color: '#A371F7', file: 'n8n-wordmark-light.png' }, // verbatim repo brand hex, for white bg
-  { name: 'dark',  color: '#cbaefa', file: 'n8n-wordmark-dark.png' },  // same hue, lightened tint for near-black bg legibility
+  { name: 'light', color: '#A371F7', file: 'showcase-wordmark-light.png' }, // verbatim repo brand hex, for white bg
+  { name: 'dark',  color: '#cbaefa', file: 'showcase-wordmark-dark.png' },  // same hue, lightened tint for near-black bg legibility
 ];
 
 const browser = await chromium.launch();

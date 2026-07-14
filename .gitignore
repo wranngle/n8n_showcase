@@ -423,3 +423,4 @@ openspec/
 
 # SQLite research DBs (research.example.json carries the schema + rebuild recipe)
 *.db
+.work/

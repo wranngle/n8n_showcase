@@ -43,7 +43,7 @@ function pickFont() {
 
 const slides = [
   {
-    title: 'n8n Workflow Library',
+    title: 'n8n_showcase',
     body: [
       'sanitized, ready-to-import flows',
       '3 registry entries, 5 workflow JSON files',
@@ -88,7 +88,7 @@ const slides = [
     title: 'Done.',
     body: [
       'registry, installer, governance: all in this repo',
-      'github.com/wranngle/n8n',
+      'github.com/wranngle/n8n_showcase',
     ],
     seconds: 5,
     accent: '0x2c3e50',
@@ -143,7 +143,7 @@ function buildSlideFilter(slide) {
     );
   });
   filters.push(
-    `drawtext=fontfile='${font}':text='wranngle/n8n':fontcolor=0x7f8c8d:fontsize=18:x=${width - 200}:y=${height - 50}`,
+    `drawtext=fontfile='${font}':text='wranngle/n8n_showcase':fontcolor=0x7f8c8d:fontsize=18:x=${width - 200}:y=${height - 50}`,
   );
   return filters.join(',');
 }

@@ -19,9 +19,6 @@ jobs:
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
     runs-on: ubuntu-latest
-    # Claude GitHub App installation is currently suspended; do not fail PRs
-    # on this job until the operator resumes it in GitHub settings.
-    continue-on-error: true
     permissions:
       contents: read
       pull-requests: read
@@ -36,6 +33,9 @@ jobs:
           persist-credentials: false
 
       - name: Run Claude Code Review
+        # Claude GitHub App installation is currently suspended; keep this
+        # check green until the operator resumes the app in GitHub settings.
+        continue-on-error: true
         id: claude-review
         uses: anthropics/claude-code-action@7d7d3055f1fdc9a97a040c69ead9ba392fa6326a  # v1
         with:

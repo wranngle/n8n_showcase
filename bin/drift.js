@@ -1,10 +1,15 @@
 #!/usr/bin/env node
-// drift detector: compares workflows deployed on an n8n instance against the
-// JSON files tracked in this repo and writes a markdown report.
-// Usage: node bin/drift.js --n8n-url <url> --api-key <key> [--workflows-dir <path>] [--out <file>]
+// Drift detector: re-fetches every exhibit in workflows/exhibits.yaml from
+// the live instance, re-sanitizes, and compares byte-for-byte against the
+// checked-in file. Exits non-zero on any divergence, so it can gate CI.
+//
+// Usage: node bin/drift.js [--n8n-url <url>] [--api-key <key>] [--out <file>]
+//   Credentials default to N8N_URL / N8N_API_KEY (loaded from ~/.claude/.env).
+//   --out defaults to docs/drift-report.md.
 
 const fs = require('fs');
 const path = require('path');
+require('../scripts/lib/env');
 const { runDrift } = require('../lib/drift');
 
 function parseArgs(argv) {
@@ -27,33 +32,24 @@ function parseArgs(argv) {
   return out;
 }
 
-function usage() {
-  console.error('Usage: node bin/drift.js --n8n-url <url> --api-key <key> [--workflows-dir <path>] [--out <file>]');
-  console.error('  Compares deployed workflows (GET /rest/workflows) against repo JSON files.');
-  console.error('  Writes a markdown report with Only on instance / Only in repo / Modified sections.');
-  console.error('  --n8n-url / --api-key may also be supplied via N8N_URL / N8N_API_KEY env vars.');
-  console.error('  --workflows-dir defaults to ./workflows. --out defaults to ./drift.md.');
-}
-
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const n8nUrl = args.flags['n8n-url'] || process.env.N8N_URL;
   const apiKey = args.flags['api-key'] || process.env.N8N_API_KEY;
-  const workflowsDir = path.resolve(args.flags['workflows-dir'] || './workflows');
-  const outPath = path.resolve(args.flags['out'] || './drift.md');
+  const repoRoot = path.join(__dirname, '..');
+  const manifestPath = path.join(repoRoot, 'workflows', 'exhibits.yaml');
+  const outPath = path.resolve(args.flags['out'] || path.join(repoRoot, 'docs', 'drift-report.md'));
 
   if (!n8nUrl || !apiKey) {
-    usage();
+    console.error('drift: N8N_URL and N8N_API_KEY are required (env or --n8n-url/--api-key).');
     process.exit(2);
   }
 
-  const { drift, report } = await runDrift({ n8nUrl, apiKey, workflowsDir });
+  const { results, report, driftedCount } = await runDrift({ n8nUrl, apiKey, repoRoot, manifestPath });
   fs.writeFileSync(outPath, report);
-
-  const total = drift.onlyOnInstance.length + drift.onlyInRepo.length + drift.modified.length;
   console.log(`wrote ${outPath}`);
-  console.log(`only-on-instance=${drift.onlyOnInstance.length} only-in-repo=${drift.onlyInRepo.length} modified=${drift.modified.length}`);
-  process.exit(total === 0 ? 0 : 1);
+  console.log(`exhibits=${results.length} in-sync=${results.length - driftedCount} drifted=${driftedCount}`);
+  process.exit(driftedCount === 0 ? 0 : 1);
 }
 
 if (require.main === module) {

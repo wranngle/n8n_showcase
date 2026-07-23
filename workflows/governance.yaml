@@ -1,703 +1,104 @@
-# Workflow Governance Configuration
-# ==================================
-#
-# DEPLOYMENT PHASES (SIMPLIFIED - DEV-ONLY POLICY):
-#   DEV      - All active development, freely modifiable
-#   ARCHIVED - Deprecated/superseded, read-only
-#
-# NOTE: ALPHA/BETA/GA/PROD phases are NOT USED in this organization.
-#       All active workflows must be DEV. When deprecated, move to ARCHIVED.
-#
-# RULES:
-#   - Deletion is BLOCKED (archive instead)
-#   - Only DEV phase workflows exist for active work
-#   - ARCHIVED for deprecated/superseded workflows
-#   - New workflows auto-tagged as DEV
-#   - Superseded workflows must be archived immediately
-#   - LITERAL TAGGING REQUIRED: Workflows must have actual tag objects in JSON, not just name prefixes.
-#   - LITERAL ARCHIVING REQUIRED: Archived workflows must have active: false.
-#   - ENFORCEMENT: scripts/governance-engine.js blocks non-compliant changes.
-#
-# TAG IDs (n8n native tags):
-#   DEV:      Nbnc0KJVYlJeasQJ
-#   ARCHIVED: 4k9QbQQTpxNkOoJQ
+# GENERATED FILE — policy block is stable; ledger and drift sections
+# are regenerated from the live instance.
+# Regenerate with: node scripts/generate-registry.js
+generated_at: "2026-07-23T05:44:54.452Z"
 
-version: "2.5"
-last_updated: "2026-01-08T14:10:00Z"
+policy:
+  # Two real phases. Legacy ALPHA/BETA/GA phases appear in the ledger
+  # where live tags/names still carry them, but are not used for new work.
+  modifiable_phases: [DEV]
+  protected_phases: [ALPHA, BETA, GA, PROD, UTIL, ARCHIVED, UNPHASED]
+  deletion: forbidden  # retire by renaming with [ARCHIVED] prefix + deactivating
+  default_phase_for_new_workflows: DEV
 
-settings:
-  deletion_allowed: false
-  default_phase: DEV
-  require_phase_tag: true
-  similarity_threshold: 40
-  clone_threshold: 70
-  # DEV-ONLY POLICY: No ALPHA/BETA/GA/PROD phases allowed
-  allowed_phases: [DEV, ARCHIVED]
+phase_counts:
+  ALPHA: 2
+  ARCHIVED: 12
+  DEV: 45
+  PROD: 2
+  UNPHASED: 3
+  UTIL: 3
 
-# n8n Native Tag IDs (only DEV and ARCHIVED are used)
-tag_ids:
-  DEV: "Nbnc0KJVYlJeasQJ"
-  ARCHIVED: "4k9QbQQTpxNkOoJQ"
-  # DEPRECATED - these tags should not be used:
-  # ALPHA: "QwqvzMfOTEAPn5PP"
-  # BETA: "Vb9lj5OMWWXzMCD1"
-  # GA: "ybOL0I5GqL216cLG"
-  # PROD: "UrBiIMoRnjp1lYyr"
+ledger:
+  "8zxKBJH4QiwzhNtf": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / single-simulation-test"}
+  "IZIj5oh3VwCVJb34": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v1-automated-simulation"}
+  "Xlr1brwbzNPMyTbW": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v2-automated-simulation"}
+  "yR6fDZ9i9IRCYZhY": {phase: ARCHIVED, active: false, name: "[ARCHIVED] infra / qdrant-check-collection / dup-1"}
+  "l3LHt8Z5z5twoOhg": {phase: ARCHIVED, active: false, name: "[ARCHIVED] post-call / sarah-receiver / dup-1"}
+  "8CLfPvHIK10jcyPb": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / elevenlabs-webhook-legacy"}
+  "1PEcVXAmWa4hMbHG": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-1"}
+  "99IwjxkWI0EOMDF1": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-2"}
+  "spdpuSuiFyjBtrgR": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-3"}
+  "c9dFlI51VhvANoEj": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-dup"}
+  "zeQNX4g5mQlE4EQ0": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-merged"}
+  "NBvO92RVDa8pCK0d": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / client-data-lookup / test-merged"}
+  "ZBks5kJOLnPDN1Fr": {phase: DEV, active: true, name: "[DEV] eval / extraction-engine-test-harness"}
+  "D4GGMXFGC1PLOUT0": {phase: DEV, active: true, name: "[DEV] eval / get-elevenlabs-agent"}
+  "paneUFRzPscNvih2": {phase: DEV, active: true, name: "[DEV] eval / pipeline-test-webhook-processor"}
+  "4TqaQ6kORDzZVwVP": {phase: DEV, active: true, name: "[DEV] eval / sris-master-orchestrator"}
+  "KoQChBtjUa5F9bZg": {phase: DEV, active: true, name: "[DEV] eval / sris-verification-loop"}
+  "h6abxnSt328fQuE4": {phase: DEV, active: false, name: "[DEV] eval / test-health"}
+  "DGBMdZP4JehVfZxO": {phase: DEV, active: true, name: "[DEV] eval / testing-framework-data-table-api"}
+  "p60GgdEwiDcIrxgp": {phase: DEV, active: false, name: "[DEV] eval / universal-evaluation-runner"}
+  "KrqpJuyN8pjTouAo": {phase: DEV, active: true, name: "[DEV] eval / voice-agent-tester"}
+  "xdzhNykWZSzHgPDC": {phase: DEV, active: true, name: "[DEV] lead-intake / presales-report-generator"}
+  "LpWW36WkDAOTpGYC": {phase: DEV, active: false, name: "[DEV] post-call / dlq-reprocess"}
+  "uNDF8icsjopS7cHS": {phase: DEV, active: false, name: "[DEV] post-call / health-endpoint"}
+  "2Z4wykQk0x1Y67Sr": {phase: DEV, active: true, name: "[DEV] post-call / llm-extraction-engine"}
+  "cEORduJCqCVDOKce": {phase: DEV, active: false, name: "[DEV] post-call / pipedrive-updater"}
+  "GZsLwzpsTvl9jIEs": {phase: DEV, active: false, name: "[DEV] post-call / sarah-receiver"}
+  "6jT5kplal5Pn3Ez0": {phase: DEV, active: false, name: "[DEV] post-call / self-healing"}
+  "gNq3nynwuFx5aYz8": {phase: DEV, active: false, name: "[DEV] post-call / self-healing / dup-1"}
+  "5hvmE72qa4VYyPOK": {phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v1"}
+  "54sXqqJVSctlSF6V": {phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v2"}
+  "wqfzHVSoyBFceVJx": {phase: DEV, active: false, name: "[DEV] post-call / webhook-health-endpoint"}
+  "Rry9i9JdDulTrCci": {phase: DEV, active: true, name: "[DEV] sarah / email-tool"}
+  "4A9qOfAJYudzkCtg": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking"}
+  "JWoB6dfXyiyaqsFq": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-1"}
+  "LsOy7unG7EJ3DZIt": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-2"}
+  "NcP4oEeS3xolYXzC": {phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-bulletproof"}
+  "5eowJIoZFZOSG85m": {phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-with-client-data"}
+  "qQmGqBM1pe4QUI05": {phase: DEV, active: false, name: "[DEV] sarah / pipedrive-lead-auto-caller"}
+  "xpRbSAaB40G0bdLJ": {phase: DEV, active: true, name: "[DEV] scrape / bulk-web-scraper"}
+  "EnfIzTTvtUMRImGX": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-browser"}
+  "ik6YjG0Sh5AAXR8G": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-fetch"}
+  "1GlU3wGKi5a0zUB4": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-stealth"}
+  "dWQJHG2fIwDSt5eP": {phase: DEV, active: true, name: "[DEV] scrape / web-scraper"}
+  "455dPWNVqwr1oMlJ": {phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender"}
+  "P6GObPFSDQUNOaZ0": {phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender / dup-1"}
+  "wZryG5tdRBFZUNMF": {phase: DEV, active: true, name: "[DEV] sms / sewy-garage-doors-tool"}
+  "CBoXlSNiDOHA5YmA": {phase: DEV, active: true, name: "[DEV] sms / universal-message-sender"}
+  "RjLiUAiuUs5XPvBj": {phase: DEV, active: true, name: "[DEV] SRIS - ElevenLabs Conversation Evaluator"}
+  "SjItj6uzYSr9rotM": {phase: DEV, active: false, name: "[DEV] supersystem / autonomous-sleep-loop"}
+  "dKJYSCGIORtUsTSM": {phase: DEV, active: true, name: "[DEV] supersystem / autorefinement-orchestrator"}
+  "oik6SebewNAh1cV5": {phase: DEV, active: true, name: "[DEV] supersystem / client-data-lookup"}
+  "Ar2lX0cprjeWB4Kd": {phase: DEV, active: true, name: "[DEV] supersystem / execution-logger"}
+  "mwepwjfX27x4uTMu": {phase: DEV, active: true, name: "[DEV] supersystem / native-evaluation-runner"}
+  "M7ZmLGCxyVOn5QJ6": {phase: DEV, active: true, name: "[DEV] supersystem / parallel-evaluation-runner"}
+  "8qlDREZy5qtEGkNK": {phase: DEV, active: false, name: "[DEV] supersystem / post-call-orchestrator"}
+  "ITUFwZq7ixgjTZMJ": {phase: DEV, active: true, name: "[DEV] supersystem / slack-notifier"}
+  "81W6PAGZfSi81ZQ9": {phase: PROD, active: true, name: "[PROD] elevenlabs-cicd"}
+  "SY5XCbzxX32eCIeO": {phase: PROD, active: true, name: "[PROD] lead-intake / form-receiver"}
+  "uFFwYcr7XgdRCvdW": {phase: ALPHA, active: true, name: "[PROD] sms / sarah-tool"}
+  "SwNgnCZ4muYS1FxN": {phase: UTIL, active: false, name: "[UTIL] infra / qdrant-check-collection"}
+  "uc2itny7NGQy71aB": {phase: UTIL, active: false, name: "[UTIL] infra / qdrant-create-collection"}
+  "MG1lNoZ1enpAo16W": {phase: UTIL, active: true, name: "[UTIL] infra / qdrant-setup"}
+  "HW81jnwEzjOAxjE9": {phase: UNPHASED, active: true, name: "elevenlabs_client_initiation_data_webhook"}
+  "bcaHY5IzdMuOVvrt": {phase: UNPHASED, active: true, name: "elevenlabs_monitoring_webhook"}
+  "BozTmxhIv5lepNyK": {phase: UNPHASED, active: true, name: "elevenlabs_post_call_webhook"}
+  "FGjUvywqh09XKlYJ": {phase: ALPHA, active: true, name: "elevenlabs_webhook_listener"}
 
-# Phase definitions (SIMPLIFIED)
-phases:
-  DEV:
-    description: "Development - all active work"
-    color: "#4CAF50"
-    modifiable: true
-    deletable: false
-
-  ARCHIVED:
-    description: "Archived - deprecated/superseded, read-only"
-    color: "#757575"
-    modifiable: false
-    deletable: false
-
-# Tracked workflows with their current phase
-workflows:
-  # === DEVELOPMENT (All Active Workflows) ===
-  "5eowJIoZFZOSG85m":
-    name: "[DEV] ElevenLabs Twilio Outbound Call with Client Data"
-    phase: DEV
-    active: true
-    description: "ElevenLabs outbound calling + Sarah SMS Tool (dual webhook)"
-    created: "2025-12-27T06:21:37Z"
-    modified: "2025-12-31T00:00:00Z"
-    webhooks:
-      - path: "/webhook/initiate-call"
-        purpose: "Outbound call initiation"
-      - path: "/webhook/send-sms"
-        purpose: "Sarah agent SMS delivery"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-27T06:21:37Z"
-      - action: demoted
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "DEV-only policy: demoted from PROD to DEV"
-
-  "NcP4oEeS3xolYXzC":
-    name: "[DEV] ElevenLabs Twilio Outbound - Bulletproof Edition"
-    phase: DEV
-    active: true
-    description: "Production-ready outbound calling with retry logic"
-    created: "2025-12-27T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-27T00:00:00Z"
-      - action: demoted
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "DEV-only policy: demoted from GA to DEV"
-
-  "cEORduJCqCVDOKce":
-    name: "[DEV] ElevenLabs Call Completed - Update Pipedrive"
-    phase: DEV
-    active: true
-    description: "Process post-call webhooks and update CRM"
-    created: "2025-12-27T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-27T00:00:00Z"
-      - action: demoted
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "DEV-only policy: demoted from GA to DEV"
-
-  "qQmGqBM1pe4QUI05":
-    name: "[DEV] Pipedrive Lead Auto-Caller"
-    phase: DEV
-    active: false
-    description: "Auto-call new Pipedrive leads via bulletproof workflow"
-    created: "2025-12-27T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-27T00:00:00Z"
-      - action: demoted
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "DEV-only policy: demoted from ALPHA to DEV"
-
-  # === DEVELOPMENT (continued) ===
-  "wZryG5tdRBFZUNMF":
-    name: "[DEV] Southeastern Wyoming Garage Doors SMS Tool"
-    phase: DEV
-    active: true
-    description: "SMS booking tool for SEWY voice agent"
-    agent_id: "agent_8801kdhbm6ane7wbxrq0vfenmsj9"
-    factory_generated: true
-    created: "2025-12-28T00:00:00Z"
-    modified: "2025-12-28T05:36:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T00:00:00Z"
-        note: "Generated by voice-agent-factory skill"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-28T05:36:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "IZIj5oh3VwCVJb34":
-    name: "[ARCHIVED] Voice Agent Tester - Automated Simulation"
-    phase: ARCHIVED
-    active: false
-    description: "Automated testing workflow for voice agents - superseded by v2.0"
-    created: "2025-12-28T00:00:00Z"
-    modified: "2026-01-08T00:00:00Z"
-    archived_reason: "Superseded by Voice Agent Tester v2.0"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-28T05:36:00Z"
-        note: "Applied n8n native DEV tag"
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2026-01-08T00:00:00Z"
-        note: "Tag fixed from DEV to ARCHIVED per governance audit"
-
-  "D4GGMXFGC1PLOUT0":
-    name: "[DEV] Get ElevenLabs Agent"
-    phase: DEV
-    active: false
-    description: "Simple workflow to retrieve an ElevenLabs agent via API"
-    created: "2025-12-28T05:48:09Z"
-    modified: "2025-12-28T05:48:09Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T05:48:09Z"
-        note: "Minimal 2-node workflow per user request"
-
-  # === ARCHIVED (Duplicates) ===
-  "1PEcVXAmWa4hMbHG":
-    name: "Sarah SMS Tool - BULLETPROOF v2.2"
-    phase: ARCHIVED
-    active: false
-    description: "Duplicate - archived for hygiene"
-    archived_reason: "Duplicate of tfie4q0zRL80PpQC"
-    created: "2025-12-28T00:00:00Z"
-    modified: "2025-12-28T05:36:00Z"
-    history:
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2025-12-28T05:36:00Z"
-        note: "Duplicate workflow - archived per governance hygiene"
-
-  "99IwjxkWI0EOMDF1":
-    name: "Sarah SMS Tool - BULLETPROOF v2.2"
-    phase: ARCHIVED
-    active: false
-    description: "Duplicate - archived for hygiene"
-    archived_reason: "Duplicate of tfie4q0zRL80PpQC"
-    created: "2025-12-28T00:00:00Z"
-    modified: "2025-12-28T05:36:00Z"
-    history:
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2025-12-28T05:36:00Z"
-        note: "Duplicate workflow - archived per governance hygiene"
-
-  "spdpuSuiFyjBtrgR":
-    name: "Sarah SMS Tool - BULLETPROOF v2.2"
-    phase: ARCHIVED
-    active: false
-    description: "Duplicate - archived for hygiene"
-    archived_reason: "Duplicate of tfie4q0zRL80PpQC"
-    created: "2025-12-28T00:00:00Z"
-    modified: "2025-12-28T05:36:00Z"
-    history:
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2025-12-28T05:36:00Z"
-        note: "Duplicate workflow - archived per governance hygiene"
-
-# === SUPERSYSTEM (Autonomous Self-Improvement) ===
-  "M7ZmLGCxyVOn5QJ6":
-    name: "[DEV] Supersystem - Parallel Evaluation Runner v6"
-    phase: DEV
-    active: true
-    description: "Runs 1000 tests in <60 seconds with parallel execution"
-    created: "2026-01-01T05:22:17Z"
-    webhooks:
-      - path: "/webhook/parallel-eval-runner-v6"
-        purpose: "Trigger evaluation runs"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-01T05:22:17Z"
-
-  "c9dFlI51VhvANoEj":
-    name: "[ARCHIVED] Supersystem - Autorefinement Orchestrator v2 (Duplicate)"
-    phase: ARCHIVED
-    active: false
-    description: "Duplicate - archived per governance audit 2026-01-09"
-    archived_reason: "Duplicate of zeQNX4g5mQlE4EQ0"
-    created: "2026-01-01T19:04:06Z"
-    webhooks:
-      - path: "/webhook/autorefinement-trigger"
-        purpose: "Receive failure data for autofix"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-01T19:04:06Z"
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2026-01-09T00:00:00Z"
-        note: "Duplicate archived per governance audit"
-
-  "SjItj6uzYSr9rotM":
-    name: "[DEV] Supersystem - Autonomous Sleep Loop"
-    phase: DEV
-    active: false
-    description: "Master orchestrator - runs nightly at midnight, loops until 100%"
-    created: "2026-01-01T18:58:31Z"
-    webhooks:
-      - path: "/webhook/autonomous-sleep-loop"
-        purpose: "Manual trigger for autonomous loop"
-    triggers:
-      - type: schedule
-        cron: "0 0 * * *"
-        purpose: "Nightly at midnight"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-01T18:58:31Z"
-
-# === SRIS (Self-Referential Improvement System) - Added 2026-01-07 ===
-  "4TqaQ6kORDzZVwVP":
-    name: "[DEV] SRIS - Master Orchestrator"
-    phase: DEV
-    active: true
-    description: "Central orchestrator for SRIS - coordinates evaluation, decision, and action phases"
-    created: "2026-01-07T22:21:22Z"
-    modified: "2026-01-08T01:52:06Z"
-    webhooks:
-      - path: "/webhook/sris-orchestrator"
-        purpose: "SRIS trigger endpoint"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-07T22:21:22Z"
-        note: "SRIS Epic 1 foundation"
-      - action: activated
-        phase: DEV
-        timestamp: "2026-01-08T01:52:06Z"
-        note: "Activated for production use"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-  "RjLiUAiuUs5XPvBj":
-    name: "[DEV] SRIS - ElevenLabs Conversation Evaluator"
-    phase: DEV
-    active: true
-    description: "Evaluates ElevenLabs voice agent conversations for quality metrics"
-    created: "2026-01-07T22:20:22Z"
-    modified: "2026-01-08T01:52:06Z"
-    webhooks:
-      - path: "/webhook/elevenlabs-conversation-eval"
-        purpose: "Conversation evaluation endpoint"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-07T22:20:22Z"
-        note: "SRIS Epic 3 - ElevenLabs evaluation"
-      - action: activated
-        phase: DEV
-        timestamp: "2026-01-08T01:52:06Z"
-        note: "Activated for production use"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-  "KoQChBtjUa5F9bZg":
-    name: "[DEV] SRIS - Verification Loop"
-    phase: DEV
-    active: true
-    description: "Verification and rollback loop for SRIS auto-fixes"
-    created: "2026-01-07T22:21:55Z"
-    modified: "2026-01-08T01:52:07Z"
-    webhooks:
-      - path: "/webhook/verification-loop"
-        purpose: "Verification trigger endpoint"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-07T22:21:55Z"
-        note: "SRIS Epic 6 - Verification system"
-      - action: activated
-        phase: DEV
-        timestamp: "2026-01-08T01:52:07Z"
-        note: "Activated for production use"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-# === TRANSCRIPT EXTRACTORS ===
-  "54sXqqJVSctlSF6V":
-    name: "[DEV] Transcript Field Extractor v2 - 5-Component Architecture"
-    phase: DEV
-    active: true
-    description: "Advanced transcript extraction with 5-component modular architecture"
-    created: "2025-12-29T06:00:49Z"
-    modified: "2025-12-29T21:39:50Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T06:00:49Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-  "5hvmE72qa4VYyPOK":
-    name: "[DEV] Transcript Field Extractor - AI Agent"
-    phase: DEV
-    active: true
-    description: "AI-powered transcript field extraction using LangChain agent"
-    created: "2025-12-29T02:43:08Z"
-    modified: "2025-12-29T05:49:33Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T02:43:08Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-# === VOICE AGENT TESTING ===
-  "KrqpJuyN8pjTouAo":
-    name: "[DEV] Voice Agent Tester v2.0"
-    phase: DEV
-    active: true
-    description: "Voice agent testing with ElevenLabs simulate-conversation API"
-    created: "2025-12-28T23:38:42Z"
-    modified: "2025-12-28T23:38:42Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T23:38:42Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-  "NBvO92RVDa8pCK0d":
-    name: "[ARCHIVED] Supersystem - Client Data Lookup (Test - Merged)"
-    phase: ARCHIVED
-    active: false
-    description: "Merged into oik6SebewNAh1cV5 - lacked eval input support"
-    archived_reason: "Merged - oik6SebewNAh1cV5 is canonical (eval-ready with input_phone/input_email support)"
-    created: "2026-01-01T04:50:53Z"
-    modified: "2026-01-09T00:00:00Z"
-    superseded_by: "oik6SebewNAh1cV5"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-01T04:50:53Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-  "zeQNX4g5mQlE4EQ0":
-    name: "[ARCHIVED] Supersystem - Autorefinement Orchestrator v2 (Merged)"
-    phase: ARCHIVED
-    active: false
-    description: "Merged into dKJYSCGIORtUsTSM - had hardcoded API keys, lacked pattern analysis"
-    archived_reason: "Merged - dKJYSCGIORtUsTSM is canonical (better credentials, pattern analysis)"
-    created: "2026-01-01T05:10:55Z"
-    modified: "2026-01-09T00:00:00Z"
-    superseded_by: "dKJYSCGIORtUsTSM"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-01T05:10:55Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-08T01:55:00Z"
-        note: "Applied DEV tag per governance audit"
-
-# === ARCHIVED (Additional) ===
-  "8zxKBJH4QiwzhNtf":
-    name: "[ARCHIVED] Single Simulation Test"
-    phase: ARCHIVED
-    active: false
-    description: "Single simulation test workflow - archived"
-    created: "2025-12-28T21:29:18Z"
-    modified: "2026-01-08T00:00:00Z"
-    archived_reason: "Test workflow no longer needed"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T21:29:18Z"
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2026-01-08T00:00:00Z"
-        note: "Archived per governance audit"
-
-# Archive summary
-archive:
-  - id: "1PEcVXAmWa4hMbHG"
-    reason: "Duplicate workflow"
-    archived_at: "2025-12-28T05:36:00Z"
-  - id: "99IwjxkWI0EOMDF1"
-    reason: "Duplicate workflow"
-    archived_at: "2025-12-28T05:36:00Z"
-  - id: "spdpuSuiFyjBtrgR"
-    reason: "Duplicate workflow"
-    archived_at: "2025-12-28T05:36:00Z"
-  - id: "8CLfPvHIK10jcyPb"
-    reason: "Superseded - SMS added to dual-webhook workflow"
-    archived_at: "2025-12-28T18:40:00Z"
-  - id: "Xlr1brwbzNPMyTbW"
-    reason: "Superseded by Voice Agent Tester v2.0 (KrqpJuyN8pjTouAo)"
-    archived_at: "2026-01-08T02:15:00Z"
-
-# Additional tracked workflows (overflow from main workflows section)
-# TODO: Consolidate into main workflows section in next governance refactor
-overflow_workflows:
-  "8CLfPvHIK10jcyPb":
-    name: "[ARCHIVED] Sarah SMS Tool - ElevenLabs Webhook"
-    phase: ARCHIVED
-    active: false
-    description: "Standalone SMS webhook - superseded by 5eowJIoZFZOSG85m dual-webhook"
-    archived_reason: "SMS functionality merged into existing PROD workflow"
-    created: "2025-12-28T18:17:07Z"
-    modified: "2025-12-28T18:40:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T18:17:07Z"
-        note: "Created for Sarah SMS tool"
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2025-12-28T18:40:00Z"
-        note: "Superseded - SMS added to 5eowJIoZFZOSG85m instead"
-
-  "Xlr1brwbzNPMyTbW":
-    name: "[ARCHIVED] Voice Agent Tester v2.0 - Automated Simulation"
-    phase: ARCHIVED
-    active: false
-    description: "ElevenLabs Conversation Simulation API testing with CI/CD support - superseded by KrqpJuyN8pjTouAo"
-    archived_reason: "Superseded by Voice Agent Tester v2.0 (KrqpJuyN8pjTouAo)"
-    created: "2025-12-28T19:42:31Z"
-    modified: "2026-01-08T02:15:00Z"
-    webhooks:
-      - path: "/webhook/voice-agent-test"
-        purpose: "Manual/CI/CD test trigger"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-28T19:42:31Z"
-        note: "Voice Agent Tester v2.0 with scenario filtering, metrics, and CI/CD integration"
-      - action: archived
-        phase: ARCHIVED
-        timestamp: "2026-01-08T02:15:00Z"
-        note: "Archived per governance audit - superseded by KrqpJuyN8pjTouAo"
-
-  # === SUPERSYSTEM WORKFLOWS (Added 2025-12-31) ===
-  "mwepwjfX27x4uTMu":
-    name: "[DEV] Supersystem - Native Evaluation Runner"
-    phase: DEV
-    active: true
-    description: "Native n8n Evaluations runner for Sarah agent testing (100 test cases)"
-    created: "2025-12-31T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    evaluations:
-      data_table: "supersystem-evaluation-dataset"
-      test_count: 100
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Primary Supersystem evaluation workflow"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "oik6SebewNAh1cV5":
-    name: "[DEV] Supersystem - Client Data Lookup (Eval-Ready)"
-    phase: DEV
-    active: false
-    description: "Client data lookup service for evaluation workflows"
-    created: "2025-12-29T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "dKJYSCGIORtUsTSM":
-    name: "[DEV] Supersystem - Autorefinement Orchestrator"
-    phase: DEV
-    active: true
-    description: "Orchestrates autorefinement cycles for voice agent prompts"
-    created: "2025-12-30T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-30T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "p60GgdEwiDcIrxgp":
-    name: "[DEV] Universal Evaluation Runner v2"
-    phase: DEV
-    active: false
-    description: "Universal evaluation runner for all workflow types"
-    created: "2026-01-08T22:31:14Z"
-    modified: "2026-01-09T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-08T22:31:14Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2026-01-09T00:00:00Z"
-        note: "Added DEV tag per governance audit"
-
-  "8qlDREZy5qtEGkNK":
-    name: "[DEV] Supersystem - Post-Call Orchestrator (Test)"
-    phase: DEV
-    active: false
-    description: "Test workflow for post-call event orchestration"
-    created: "2025-12-29T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "ITUFwZq7ixgjTZMJ":
-    name: "[DEV] Supersystem - Slack Notifier (Test)"
-    phase: DEV
-    active: false
-    description: "Test workflow for Slack notification integration"
-    created: "2025-12-29T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-  "Ar2lX0cprjeWB4Kd":
-    name: "[DEV] Supersystem - Execution Logger (Test)"
-    phase: DEV
-    active: false
-    description: "Test workflow for execution logging"
-    created: "2025-12-29T00:00:00Z"
-    modified: "2025-12-31T00:00:00Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2025-12-29T00:00:00Z"
-      - action: tagged
-        phase: DEV
-        timestamp: "2025-12-31T00:00:00Z"
-        note: "Applied n8n native DEV tag"
-
-# Pipeline Test Workflow (added 2026-01-07)
-  "paneUFRzPscNvih2":
-    name: "[DEV] Pipeline Test - Webhook Processor"
-    phase: DEV
-    active: true
-    description: "End-to-end pipeline validation workflow - receives POST, processes data, returns JSON"
-    created: "2026-01-07T18:34:28Z"
-    modified: "2026-01-07T19:28:00Z"
-    webhooks:
-      - path: "/webhook/pipeline-test"
-        purpose: "Pipeline validation endpoint"
-    evaluation:
-      test_count: 5
-      pass_rate: 100
-      last_run: "2026-01-07T19:28:39Z"
-    history:
-      - action: created
-        phase: DEV
-        timestamp: "2026-01-07T18:34:28Z"
-        note: "Created for end-to-end pipeline validation"
-      - action: evaluated
-        phase: DEV
-        timestamp: "2026-01-07T19:28:39Z"
-        note: "5/5 test cases passed (100%)"
-
-# No untracked workflows remaining
-untracked: []
-
-# ============================================================================
-# KNOWN BUG: n8n-mcp addTag Operation (2026-01-08) [RESOLVED]
-# ============================================================================
-#
-# BUG SUMMARY:
-#   The n8n-mcp server's `addTag` operation in `n8n_update_partial_workflow`
-#   returns success responses but does NOT persist tags to the n8n instance.
-#
-# SYMPTOMS:
-#   - Tool returns: { success: true, operationsApplied: 1 }
-#   - Subsequent n8n_get_workflow shows tags: []
-#   - Tested with both tagId and tagName parameters - same result
-#
-# ROOT CAUSE:
-#   n8n-mcp `addTag` operation does not make the correct API call.
-#   Tags require the dedicated endpoint: PUT /api/v1/workflows/{id}/tags
-#
-# WORKAROUND (SUCCESSFUL):
-#   Direct n8n REST API call via PowerShell:
-#   ```powershell
-#   $body = '[{"id":"tagId"}]'
-#   Invoke-RestMethod -Uri "$baseUrl/workflows/$workflowId/tags" `
-#     -Headers @{"X-N8N-API-KEY"=$apiKey; "Content-Type"="application/json"} `
-#     -Method PUT -Body $body
-#   ```
-#
-# RESOLUTION DATE: 2026-01-08T14:05:00Z
-# RESOLUTION METHOD: Direct API via PowerShell scripts
-# SCRIPTS LOCATION: scripts/add-tags.ps1, scripts/tag-last-workflow.ps1
-#
-# ============================================================================
-# TAG APPLICATION STATUS: COMPLETE (2026-01-08)
-# ============================================================================
-#
-# All 31 workflows now have n8n native tags applied:
-#   - 23 workflows with DEV tag (Nbnc0KJVYlJeasQJ)
-#   - 8 workflows with ARCHIVED tag (4k9QbQQTpxNkOoJQ)
-#
-# Verified via n8n_list_workflows - all tags persisting correctly.
-# ============================================================================
+# Live-fleet drift from the naming/versioning doctrine, reported honestly
+# rather than papered over. Cleanup is tracked work, not a rewrite of history.
+known_drift:
+  dual_active_versions:
+    - base: "[DEV] post-call / transcript-field-extractor"
+      names: ["[DEV] post-call / transcript-field-extractor / v1", "[DEV] post-call / transcript-field-extractor / v2"]
+  unphased_names:
+    - "elevenlabs_client_initiation_data_webhook"
+    - "elevenlabs_monitoring_webhook"
+    - "elevenlabs_post_call_webhook"
+    - "elevenlabs_webhook_listener"
+  version_suffix_names:
+    - "[DEV] post-call / transcript-field-extractor / v1"
+    - "[DEV] post-call / transcript-field-extractor / v2"

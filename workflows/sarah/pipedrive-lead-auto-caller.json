@@ -1,0 +1,324 @@
+{
+  "name": "[DEV] sarah / pipedrive-lead-auto-caller",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "action": "added"
+      },
+      "id": "trigger",
+      "name": "New Lead Added",
+      "type": "n8n-nodes-base.pipedriveTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "phone-exists",
+              "leftValue": "={{ ($json.current.phone && $json.current.phone[0]) ? $json.current.phone[0].value : '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combineOperation": "all"
+        },
+        "options": {}
+      },
+      "id": "check-phone",
+      "name": "Has Phone Number?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "customer_id",
+              "name": "customer_id",
+              "value": "={{ 'pipedrive_' + $json.current.id }}",
+              "type": "string"
+            },
+            {
+              "id": "customer_name",
+              "name": "customer_name",
+              "value": "={{ $json.current.name }}",
+              "type": "string"
+            },
+            {
+              "id": "customer_first_name",
+              "name": "customer_first_name",
+              "value": "={{ $json.current.first_name || $json.current.name.split(' ')[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "name": "phone",
+              "value": "={{ ($json.current.phone && $json.current.phone[0]) ? $json.current.phone[0].value : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ ($json.current.email && $json.current.email[0]) ? $json.current.email[0].value : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "company_name",
+              "name": "company_name",
+              "value": "={{ $json.current.org_name || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "pipedrive_person_id",
+              "name": "pipedrive_person_id",
+              "value": "={{ $json.current.id }}",
+              "type": "number"
+            },
+            {
+              "id": "lead_source",
+              "name": "lead_source",
+              "value": "pipedrive_auto",
+              "type": "string"
+            },
+            {
+              "id": "account_type",
+              "name": "account_type",
+              "value": "standard",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-lead-data",
+      "name": "Extract Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.wranngle.com/webhook/initiate-call-v2",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "initiate-call",
+      "name": "Initiate Voice Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        912,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "call_initiated",
+              "type": "string"
+            },
+            {
+              "id": "pipedrive_person_id",
+              "name": "pipedrive_person_id",
+              "value": "={{ $('Extract Lead Data').item.json.pipedrive_person_id }}",
+              "type": "number"
+            },
+            {
+              "id": "call_response",
+              "name": "call_response",
+              "value": "={{ $json.body }}",
+              "type": "object"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-success",
+      "name": "Log Call Initiated",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1136,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "skipped_no_phone",
+              "type": "string"
+            },
+            {
+              "id": "person_id",
+              "name": "person_id",
+              "value": "={{ $json.current.id }}",
+              "type": "number"
+            },
+            {
+              "id": "person_name",
+              "name": "person_name",
+              "value": "={{ $json.current.name }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-no-phone",
+      "name": "Log No Phone",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        400
+      ]
+    },
+    {
+      "id": "webhook-trigger",
+      "name": "MCP Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        56,
+        304
+      ],
+      "parameters": {
+        "path": "pipedrive-lead-auto-caller",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    }
+  ],
+  "connections": {
+    "New Lead Added": {
+      "main": [
+        [
+          {
+            "node": "Has Phone Number?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Phone Number?": {
+      "main": [
+        [
+          {
+            "node": "Extract Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Initiate Voice Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initiate Voice Call": {
+      "main": [
+        [
+          {
+            "node": "Log Call Initiated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Webhook": {
+      "0": [
+        [
+          {
+            "node": "Has Phone Number?",
+            "type": "0",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": [
+    "DEV"
+  ]
+}

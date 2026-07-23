@@ -1,11 +1,11 @@
-// Loads ~/.agents/.env into process.env. Existing process.env values win.
+// Loads ~/.claude/.env into process.env. Existing process.env values win.
 // Require this module once at the top of any script that needs API keys.
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const ENV_PATH = path.join(os.homedir(), '.agents', '.env');
+const ENV_PATH = path.join(os.homedir(), '.claude', '.env');
 
 function parseEnvFile(text) {
   const out = {};
@@ -33,7 +33,7 @@ if (fs.existsSync(ENV_PATH)) {
   }
 }
 
-function require_(key) {
+function requireEnv(key) {
   const v = process.env[key];
   if (!v) {
     throw new Error(`${key} is not set. Add it to ${ENV_PATH} or export it before running.`);
@@ -44,10 +44,10 @@ function require_(key) {
 // Parses N8N_URL (e.g. https://n8n.example.com or http://localhost:5678) into
 // request options plus the matching http/https client module.
 function n8nTarget() {
-  const url = new URL(require_('N8N_URL'));
+  const url = new URL(requireEnv('N8N_URL'));
   const client = url.protocol === 'http:' ? require('http') : require('https');
   const port = Number(url.port || (url.protocol === 'http:' ? 80 : 443));
   return { client, hostname: url.hostname, port, origin: url.origin };
 }
 
-module.exports = { ENV_PATH, require: require_, n8nTarget };
+module.exports = { ENV_PATH, require: requireEnv, requireEnv, n8nTarget };

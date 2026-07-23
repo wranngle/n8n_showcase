@@ -5,17 +5,20 @@ const fs = require('fs');
 const path = require('path');
 const { runRules, listRules } = require('../lib/lint/registry');
 
-const USAGE = `Usage: n8n-lint <workflow.json | dir> [<more...>] [--only rule1,rule2] [--skip rule3] [--json] [--list-rules]
+const USAGE = `Usage: n8n-lint <workflow.json | dir> [<more...>] [--only rule1,rule2] [--skip rule3] [--json] [--baseline file.json] [--list-rules]
 
 Lints n8n workflow JSON files using a registry of custom rules:
 ${listRules()
   .map((r) => `  - ${r.id}: ${r.description}`)
   .join('\n')}
 
-Exits non-zero if any rule emits a finding.`;
+Exits non-zero if any rule emits a finding. With --baseline, exits non-zero
+only when a rule's finding count EXCEEDS the count recorded in the baseline
+file ({ruleId: count}) — a ratchet: existing debt is tracked, new debt is
+blocked, and shrinking counts should be locked in by lowering the baseline.`;
 
 function parseArgs(argv) {
-  const args = { paths: [], only: null, skip: null, json: false, listRules: false, help: false };
+  const args = { paths: [], only: null, skip: null, json: false, listRules: false, help: false, baseline: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--help' || a === '-h') {
@@ -24,6 +27,8 @@ function parseArgs(argv) {
       args.listRules = true;
     } else if (a === '--json') {
       args.json = true;
+    } else if (a === '--baseline') {
+      args.baseline = argv[++i] || null;
     } else if (a === '--only') {
       args.only = (argv[++i] || '').split(',').map((s) => s.trim()).filter(Boolean);
     } else if (a === '--skip') {
@@ -130,6 +135,23 @@ function main() {
       const rules = Array.from(new Set(allFindings.map((f) => f.rule))).sort();
       process.stderr.write(`rules triggered: ${rules.join(', ')}\n`);
     }
+  }
+
+  if (args.baseline) {
+    const baseline = JSON.parse(fs.readFileSync(args.baseline, 'utf8'));
+    const counts = {};
+    for (const f of allFindings) counts[f.rule] = (counts[f.rule] || 0) + 1;
+    let regressions = 0;
+    for (const [rule, count] of Object.entries(counts)) {
+      const allowed = baseline[rule] || 0;
+      if (count > allowed) {
+        process.stderr.write(`baseline: ${rule} regressed (${count} > allowed ${allowed})\n`);
+        regressions += 1;
+      } else if (count < allowed) {
+        process.stderr.write(`baseline: ${rule} improved (${count} < allowed ${allowed}) — lower the baseline to lock it in\n`);
+      }
+    }
+    process.exit(regressions > 0 ? 1 : 0);
   }
   process.exit(allFindings.length > 0 ? 1 : 0);
 }

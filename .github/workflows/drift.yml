@@ -1,0 +1,41 @@
+name: drift
+
+# Continuously proves the headline claim: every checked-in exhibit equals
+# the sanitized live workflow on n8n.wranngle.com, byte for byte. Runs on a
+# schedule (and on demand); fails when the instance and the repo diverge.
+# Requires the N8N_API_KEY repository secret; skips gracefully without it
+# so forks stay green.
+
+on:
+  schedule:
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    env:
+      N8N_URL: https://n8n.wranngle.com
+      N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+      - name: skip-without-key
+        if: env.N8N_API_KEY == ''
+        run: echo "N8N_API_KEY secret not configured — skipping drift check."
+      - name: install-deps
+        if: env.N8N_API_KEY != ''
+        run: (npm ci || npm install) >/dev/null
+      - name: drift
+        if: env.N8N_API_KEY != ''
+        run: node bin/drift.js --out drift-report.md
+      - name: upload-report
+        if: always() && env.N8N_API_KEY != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: drift-report
+          path: drift-report.md

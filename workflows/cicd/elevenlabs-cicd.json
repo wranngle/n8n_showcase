@@ -1,0 +1,424 @@
+{
+  "name": "[PROD] elevenlabs-cicd",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "elevenlabs-cicd",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook: Client Lookup",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        112
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "caller_id",
+              "name": "caller_id",
+              "type": "string",
+              "value": "={{ ($json.body || {}).caller_id || $json.caller_id || '' }}"
+            },
+            {
+              "id": "agent_id",
+              "name": "agent_id",
+              "type": "string",
+              "value": "={{ ($json.body || {}).agent_id || $json.agent_id || '' }}"
+            },
+            {
+              "id": "called_number",
+              "name": "called_number",
+              "type": "string",
+              "value": "={{ ($json.body || {}).called_number || $json.called_number || '' }}"
+            },
+            {
+              "id": "call_sid",
+              "name": "call_sid",
+              "type": "string",
+              "value": "={{ ($json.body || {}).call_sid || $json.call_sid || '' }}"
+            },
+            {
+              "id": "start_time",
+              "name": "start_time",
+              "type": "number",
+              "value": "={{ Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-metadata",
+      "name": "Extract & Validate Call Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "agent-match",
+              "leftValue": "={{ $json.agent_id }}",
+              "rightValue": "<REDACTED:elevenlabs-agent-id>",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "validate-agent",
+      "name": "Validate Agent ID",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        112
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'Invalid agent_id', expected: '<REDACTED:elevenlabs-agent-id>', received: $json.agent_id } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "error-invalid-agent",
+      "name": "Error: Invalid Agent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "mode": "name",
+          "value": "call-history"
+        },
+        "returnAll": true
+      },
+      "id": "datatable-lookup",
+      "name": "Data Table: Lookup Call History",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        112
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst startTime = $('Extract & Validate Call Metadata').first().json.start_time || Date.now();\nconst callerId = $('Extract & Validate Call Metadata').first().json.caller_id || '';\n\nlet pipedriveData = null;\ntry {\n  const pipedriveNode = $('Pipedrive: Lookup Person').all();\n  if (pipedriveNode.length > 0 && pipedriveNode[0].json.data && pipedriveNode[0].json.data.items && pipedriveNode[0].json.data.items.length > 0) {\n    const person = pipedriveNode[0].json.data.items[0].item;\n    pipedriveData = {\n      id: person.id,\n      name: person.name,\n      first_name: person.first_name || (person.name ? person.name.split(' ')[0] : ''),\n      org_name: (person.organization && person.organization.name) ? person.organization.name : '',\n      org_id: (person.organization && person.organization.id) ? person.organization.id : 0,\n      account_tier: (person.custom_fields && person.custom_fields.account_tier) ? person.custom_fields.account_tier : null,\n      industry: (person.custom_fields && person.custom_fields.industry) ? person.custom_fields.industry : ''\n    };\n  }\n} catch (e) { /* Pipedrive lookup failed */ }\n\nlet callHistoryData = null;\ntry {\n  const dtNode = $('Data Table: Lookup Call History').all();\n  if (dtNode.length > 0 && dtNode[0].json) {\n    const row = dtNode[0].json;\n    callHistoryData = {\n      name: row.name || '',\n      call_count: parseInt(row.call_count) || 0,\n      last_interaction: row.last_interaction || '',\n      last_topic: row.last_topic || '',\n      notes: row.notes || ''\n    };\n  }\n} catch (e) { /* Data Table lookup failed */ }\n\nfunction sanitize(text) {\n  if (!text) return '';\n  text = text.replace(/\\d{3}-\\d{2}-\\d{4}/g, '[REDACTED]');\n  text = text.replace(/\\d{16}/g, '[REDACTED]');\n  if (text.length > 200) text = text.substring(0, 197) + '...';\n  return text;\n}\n\nfunction calculateTier(callCount) {\n  if (callCount === 0) return 'New';\n  if (callCount <= 5) return 'Bronze';\n  if (callCount <= 15) return 'Silver';\n  return 'Gold';\n}\n\nvar customerName = (pipedriveData && pipedriveData.name) ? pipedriveData.name : ((callHistoryData && callHistoryData.name) ? callHistoryData.name : 'there');\nvar customerFirstName = (pipedriveData && pipedriveData.first_name) ? pipedriveData.first_name : ((callHistoryData && callHistoryData.name) ? callHistoryData.name.split(' ')[0] : 'there');\nvar company = (pipedriveData && pipedriveData.org_name) ? pipedriveData.org_name : '';\nvar industry = (pipedriveData && pipedriveData.industry) ? pipedriveData.industry : '';\nvar interactionCount = (callHistoryData && callHistoryData.call_count) ? callHistoryData.call_count : 0;\nvar accountTier = (pipedriveData && pipedriveData.account_tier) ? pipedriveData.account_tier : calculateTier(interactionCount);\nvar callHistory = (callHistoryData && callHistoryData.last_interaction) ? callHistoryData.last_interaction : 'First-time caller';\nvar lastTopic = (callHistoryData && callHistoryData.last_topic) ? callHistoryData.last_topic : '';\nvar notes = sanitize((callHistoryData && callHistoryData.notes) ? callHistoryData.notes : '');\n\nvar lookupSuccess = !!(pipedriveData || callHistoryData);\nvar dataSource = pipedriveData ? 'pipedrive' : (callHistoryData ? 'data_table' : 'none');\n\nvar dynamicVariables = {\n  customer_name: customerName,\n  customer_first_name: customerFirstName,\n  company: company,\n  industry: industry,\n  account_tier: accountTier,\n  call_history: callHistory,\n  interaction_count: interactionCount,\n  last_topic: lastTopic,\n  notes: notes,\n  lookup_success: lookupSuccess,\n  data_source: dataSource,\n  secret__pipedrive_person_id: (pipedriveData && pipedriveData.id) ? pipedriveData.id : 0,\n  secret__pipedrive_org_id: (pipedriveData && pipedriveData.org_id) ? pipedriveData.org_id : 0\n};\n\nvar response = {\n  type: 'conversation_initiation_client_data',\n  dynamic_variables: dynamicVariables\n};\n\nif (accountTier === 'Gold') {\n  response.conversation_config_override = {\n    agent: { first_message: 'Hi ' + customerFirstName + ', this is Sarah from Wranngle. I see you are one of our premium clients - how can I help you today?' }\n  };\n} else if (interactionCount >= 3) {\n  response.conversation_config_override = {\n    agent: { first_message: 'Hi ' + customerFirstName + ', great to hear from you again! This is Sarah from Wranngle.' }\n  };\n}\n\nvar executionTime = Date.now() - startTime;\nvar metadata = {\n  caller_id: callerId,\n  execution_time_ms: executionTime,\n  pipedrive_success: !!pipedriveData,\n  data_table_success: !!callHistoryData,\n  enrichment_success: lookupSuccess,\n  account_tier: accountTier,\n  data_source: dataSource\n};\n\nreturn [{ json: { response: response, metadata: metadata } }];"
+      },
+      "id": "merge-transform",
+      "name": "Merge & Transform Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "log_entry",
+              "name": "log_entry",
+              "type": "object",
+              "value": "={{ { timestamp: new Date().toISOString(), caller_id: $json.metadata.caller_id, execution_time_ms: $json.metadata.execution_time_ms, enrichment_success: $json.metadata.enrichment_success, data_source: $json.metadata.data_source, account_tier: $json.metadata.account_tier } }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution Metrics",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": false,
+            "typeValidation": "strict"
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "slow-response",
+              "leftValue": "={{ $json.metadata.execution_time_ms }}",
+              "rightValue": 500,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-performance",
+      "name": "Check Performance Threshold",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        16
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "alert",
+              "name": "alert",
+              "type": "string",
+              "value": "=PERFORMANCE: Client initiation webhook exceeded 500ms threshold. Caller: {{ $json.metadata.caller_id }}. Execution Time: {{ $json.metadata.execution_time_ms }}ms. Data Source: {{ $json.metadata.data_source }}."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "alert-slow-webhook",
+      "name": "Alert: Slow Webhook Performance",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1568,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "X-Execution-Time-Ms",
+                "value": "={{ ($json.metadata || {}).execution_time_ms || 0 }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond: Client Initiation Data",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var response = {\n  type: 'conversation_initiation_client_data',\n  dynamic_variables: {\n    customer_name: 'there',\n    customer_first_name: 'there',\n    company: '',\n    industry: '',\n    account_tier: 'New',\n    call_history: 'First-time caller',\n    interaction_count: 0,\n    last_topic: '',\n    notes: '',\n    lookup_success: false,\n    data_source: 'none',\n    secret__pipedrive_person_id: 0,\n    secret__pipedrive_org_id: 0\n  }\n};\nreturn [{ json: { response: response } }];"
+      },
+      "id": "error-fallback",
+      "name": "Error Fallback: Generic Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        0,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-fallback",
+      "name": "Respond: Fallback",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        528
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Client Lookup": {
+      "main": [
+        [
+          {
+            "node": "Extract & Validate Call Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Validate Call Metadata": {
+      "main": [
+        [
+          {
+            "node": "Validate Agent ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Agent ID": {
+      "main": [
+        [
+          {
+            "node": "Data Table: Lookup Call History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge & Transform Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Invalid Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Table: Lookup Call History": {
+      "main": [
+        [
+          {
+            "node": "Merge & Transform Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge & Transform Data": {
+      "main": [
+        [
+          {
+            "node": "Log Execution Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Execution Metrics": {
+      "main": [
+        [
+          {
+            "node": "Check Performance Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Performance Threshold": {
+      "main": [
+        [
+          {
+            "node": "Alert: Slow Webhook Performance",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Client Initiation Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert: Slow Webhook Performance": {
+      "main": [
+        [
+          {
+            "node": "Respond: Client Initiation Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Fallback: Generic Response": {
+      "main": [
+        [
+          {
+            "node": "Respond: Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-fallback",
+    "availableInMCP": false
+  },
+  "tags": []
+}

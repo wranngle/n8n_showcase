@@ -1,0 +1,470 @@
+{
+  "name": "[DEV] sarah / outbound-caller-bulletproof",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "initiate-call-v2",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook: Initiate Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// BULLETPROOF INPUT VALIDATION & SANITIZATION\n// ============================================\n\nconst rawData = $input.item.json;\nconst input = rawData.body || rawData;\n\n// Validation result object\nconst validation = {\n  isValid: true,\n  errors: [],\n  warnings: [],\n  sanitized: {}\n};\n\n// ============================================\n// 1. REQUIRED FIELD VALIDATION\n// ============================================\n\n// Phone number validation\nif (!input.phone) {\n  validation.isValid = false;\n  validation.errors.push('Missing required field: phone');\n} else {\n  // Sanitize phone number - remove all non-digit chars except +\n  let phone = String(input.phone).replace(/[^\\d+]/g, '');\n  \n  // Ensure E.164 format\n  if (!phone.startsWith('+')) {\n    // Assume US number if no country code\n    if (phone.length === 10) {\n      phone = '+1' + phone;\n      validation.warnings.push('Added +1 country code to phone number');\n    } else if (phone.length === 11 && phone.startsWith('1')) {\n      phone = '+' + phone;\n      validation.warnings.push('Added + prefix to phone number');\n    } else {\n      validation.isValid = false;\n      validation.errors.push('Invalid phone format. Use E.164 format: +1234567890');\n    }\n  }\n  \n  // Validate E.164 length (max 15 digits including country code)\n  if (phone.length < 10 || phone.length > 16) {\n    validation.isValid = false;\n    validation.errors.push('Phone number length invalid. Must be 10-15 digits.');\n  }\n  \n  validation.sanitized.phone = phone;\n}\n\n// Customer name validation\nif (!input.customer_name) {\n  validation.isValid = false;\n  validation.errors.push('Missing required field: customer_name');\n} else {\n  // Sanitize name - remove potentially harmful characters\n  const name = String(input.customer_name)\n    .replace(/[<>{}\\[\\]\\\\]/g, '')\n    .trim()\n    .substring(0, 100); // Max 100 chars\n  \n  if (name.length < 1) {\n    validation.isValid = false;\n    validation.errors.push('Customer name cannot be empty');\n  }\n  \n  validation.sanitized.customer_name = name;\n  validation.sanitized.customer_first_name = name.split(' ')[0] || name;\n}\n\n// ============================================\n// 2. OPTIONAL FIELD SANITIZATION\n// ============================================\n\n// Account number - alphanumeric only\nif (input.account_number) {\n  validation.sanitized.account_number = String(input.account_number)\n    .replace(/[^a-zA-Z0-9-_]/g, '')\n    .substring(0, 50);\n}\n\n// Account type - whitelist allowed values\nconst allowedAccountTypes = ['standard', 'premium', 'enterprise', 'trial', 'vip'];\nif (input.account_type) {\n  const accountType = String(input.account_type).toLowerCase();\n  validation.sanitized.account_type = allowedAccountTypes.includes(accountType) \n    ? accountType \n    : 'standard';\n  if (!allowedAccountTypes.includes(accountType)) {\n    validation.warnings.push(`Unknown account_type '${input.account_type}', defaulting to 'standard'`);\n  }\n} else {\n  validation.sanitized.account_type = 'standard';\n}\n\n// Call purpose - sanitize text\nif (input.call_purpose) {\n  validation.sanitized.call_purpose = String(input.call_purpose)\n    .replace(/[<>{}\\[\\]\\\\]/g, '')\n    .trim()\n    .substring(0, 200);\n} else {\n  validation.sanitized.call_purpose = 'general inquiry';\n}\n\n// Customer ID\nif (input.customer_id) {\n  validation.sanitized.customer_id = String(input.customer_id)\n    .replace(/[^a-zA-Z0-9-_]/g, '')\n    .substring(0, 100);\n} else {\n  validation.sanitized.customer_id = validation.sanitized.phone;\n}\n\n// ============================================\n// 3. DYNAMIC VARIABLES (pass-through with sanitization)\n// ============================================\n\nif (input.custom_variables && typeof input.custom_variables === 'object') {\n  validation.sanitized.custom_variables = {};\n  for (const [key, value] of Object.entries(input.custom_variables)) {\n    // Sanitize key and value\n    const safeKey = String(key).replace(/[^a-zA-Z0-9_]/g, '').substring(0, 50);\n    let safeValue = value;\n    \n    if (typeof value === 'string') {\n      safeValue = value.replace(/[<>{}\\[\\]\\\\]/g, '').substring(0, 500);\n    } else if (typeof value === 'number' || typeof value === 'boolean') {\n      safeValue = value;\n    } else {\n      safeValue = String(value).substring(0, 500);\n    }\n    \n    validation.sanitized.custom_variables[safeKey] = safeValue;\n  }\n}\n\n// ============================================\n// 4. FIRST MESSAGE OVERRIDE\n// ============================================\n\nif (input.first_message_override) {\n  validation.sanitized.first_message_override = String(input.first_message_override)\n    .replace(/[<>{}\\[\\]\\\\]/g, '')\n    .trim()\n    .substring(0, 500);\n}\n\n// ============================================\n// 5. REQUEST METADATA\n// ============================================\n\nvalidation.metadata = {\n  request_id: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  received_at: new Date().toISOString(),\n  source_ip: rawData.headers?.['cf-connecting-ip'] || rawData.headers?.['x-forwarded-for'] || 'unknown',\n  user_agent: rawData.headers?.['user-agent'] || 'unknown'\n};\n\n// ============================================\n// 6. AGENT OVERRIDE (new — added for Lead Intake / multi-agent support)\n// ============================================\nif (input.agent_id) {\n  const aid = String(input.agent_id).replace(/[^a-zA-Z0-9_]/g, '').substring(0, 100);\n  if (aid.startsWith('agent_')) {\n    validation.sanitized.agent_id = aid;\n  } else {\n    validation.warnings.push('Ignored agent_id override that did not start with \"agent_\"');\n  }\n}\nif (input.agent_phone_number_id) {\n  const pid = String(input.agent_phone_number_id).replace(/[^a-zA-Z0-9_]/g, '').substring(0, 100);\n  if (pid.startsWith('phnum_')) {\n    validation.sanitized.agent_phone_number_id = pid;\n  } else {\n    validation.warnings.push('Ignored agent_phone_number_id override that did not start with \"phnum_\"');\n  }\n}\n\nreturn {\n  json: {\n    validation,\n    original_input: input\n  }\n};"
+      },
+      "id": "validate-and-sanitize",
+      "name": "Validate & Sanitize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is-valid",
+              "leftValue": "={{ $json.validation.isValid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-validation",
+      "name": "Validation Passed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        688,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"validation_error\": true,\n  \"call_attempted\": false,\n  \"call_initiated\": false,\n  \"call_failed\": false,\n  \"client_data_injected\": false,\n  \"error_code\": \"VALIDATION_ERROR\",\n  \"message\": \"Input validation failed\",\n  \"errors\": {{ JSON.stringify($json.validation.errors) }},\n  \"warnings\": {{ JSON.stringify($json.validation.warnings) }},\n  \"request_id\": \"{{ $json.validation.metadata.request_id }}\",\n  \"timestamp\": \"{{ $json.validation.metadata.received_at }}\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-validation-error",
+      "name": "Respond: Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        464
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// BUILD ELEVENLABS API PAYLOAD\n// ============================================\n\nconst validation = $input.item.json.validation;\nconst s = validation.sanitized;\n\n// Build dynamic_variables object\nconst dynamic_variables = {\n  customer_name: s.customer_name,\n  customer_first_name: s.customer_first_name,\n  account_type: s.account_type,\n  call_purpose: s.call_purpose\n};\n\n// Add optional fields if present\nif (s.account_number) {\n  dynamic_variables.account_number = s.account_number;\n}\n\n// Merge custom variables\nif (s.custom_variables) {\n  Object.assign(dynamic_variables, s.custom_variables);\n}\n\n// Build the payload\nconst payload = {\n  agent_id: s.agent_id || '<REDACTED:elevenlabs-agent-id>', // Wranngle Lead Qualifier\n  agent_phone_number_id: s.agent_phone_number_id || '<REDACTED:elevenlabs-phone-id>',\n  to_number: s.phone,\n  conversation_initiation_client_data: {\n    user_id: s.customer_id,\n    dynamic_variables: dynamic_variables\n  }\n};\n\n// Add first message override if specified\nif (s.first_message_override) {\n  payload.conversation_initiation_client_data.conversation_config_override = {\n    agent: {\n      first_message: s.first_message_override\n    }\n  };\n}\n\nreturn {\n  json: {\n    payload,\n    metadata: validation.metadata,\n    sanitized: s,\n    retry_count: 0,\n    max_retries: 3\n  }\n};"
+      },
+      "id": "build-payload",
+      "name": "Build ElevenLabs Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "call-elevenlabs",
+      "name": "ElevenLabs: Initiate Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1120,
+        208
+      ],
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ============================================\n// CLASSIFY API RESPONSE & DETERMINE ACTION\n// ============================================\n\nconst response = $input.item.json;\nconst prevData = $('Build ElevenLabs Payload').item.json;\n\nconst result = {\n  status: 'unknown',\n  action: 'none',\n  error_code: null,\n  error_message: null,\n  is_retryable: false,\n  retry_delay_ms: 0,\n  response_data: null,\n  metadata: prevData.metadata,\n  sanitized: prevData.sanitized,\n  retry_count: prevData.retry_count,\n  max_retries: prevData.max_retries,\n  payload: prevData.payload\n};\n\n// Check for execution error (network, timeout, etc)\nif (response.error) {\n  result.status = 'error';\n  result.error_code = 'NETWORK_ERROR';\n  result.error_message = response.error.message || 'Network request failed';\n  result.is_retryable = true;\n  result.retry_delay_ms = Math.min(1000 * Math.pow(2, prevData.retry_count), 30000); // Exponential backoff, max 30s\n  result.action = prevData.retry_count < prevData.max_retries ? 'retry' : 'fail';\n  return { json: result };\n}\n\nconst statusCode = response.statusCode || response.status;\nconst body = response.body || response.data || response;\n\n// ============================================\n// SUCCESS RESPONSES (2xx)\n// ============================================\nif (statusCode >= 200 && statusCode < 300) {\n  if (body.success === true) {\n    result.status = 'success';\n    result.action = 'complete';\n    result.response_data = {\n      conversation_id: body.conversation_id,\n      call_sid: body.callSid,\n      message: body.message\n    };\n    return { json: result };\n  }\n  // API returned 200 but success=false\n  result.status = 'api_error';\n  result.error_code = 'API_REJECTION';\n  result.error_message = body.message || 'API returned success=false';\n  result.is_retryable = false;\n  result.action = 'fail';\n  return { json: result };\n}\n\n// ============================================\n// RATE LIMIT (429)\n// ============================================\nif (statusCode === 429) {\n  result.status = 'rate_limited';\n  result.error_code = 'RATE_LIMIT';\n  \n  // Check type of rate limit\n  if (body.detail?.includes('too_many_concurrent_requests')) {\n    result.error_message = 'Concurrent request limit exceeded';\n    result.retry_delay_ms = 5000; // Wait 5 seconds\n  } else if (body.detail?.includes('system_busy')) {\n    result.error_message = 'ElevenLabs system busy';\n    result.retry_delay_ms = 2000; // Shorter wait\n  } else {\n    result.error_message = body.detail || 'Rate limit exceeded';\n    result.retry_delay_ms = 10000; // Default 10 seconds\n  }\n  \n  result.is_retryable = true;\n  result.action = prevData.retry_count < prevData.max_retries ? 'retry' : 'fail';\n  return { json: result };\n}\n\n// ============================================\n// CLIENT ERRORS (4xx)\n// ============================================\nif (statusCode >= 400 && statusCode < 500) {\n  result.status = 'client_error';\n  \n  switch (statusCode) {\n    case 400:\n      result.error_code = 'BAD_REQUEST';\n      result.error_message = body.detail || body.message || 'Invalid request';\n      result.is_retryable = false;\n      break;\n    case 401:\n      result.error_code = 'UNAUTHORIZED';\n      result.error_message = 'Invalid or missing API key';\n      result.is_retryable = false;\n      break;\n    case 403:\n      result.error_code = 'FORBIDDEN';\n      result.error_message = 'Access denied - check permissions';\n      result.is_retryable = false;\n      break;\n    case 404:\n      result.error_code = 'NOT_FOUND';\n      result.error_message = 'Agent or phone number not found';\n      result.is_retryable = false;\n      break;\n    case 422:\n      result.error_code = 'VALIDATION_ERROR';\n      // Check for missing dynamic variables error\n      if (body.detail?.includes('Missing required dynamic variables')) {\n        result.error_message = body.detail;\n      } else {\n        result.error_message = body.detail || 'Request validation failed';\n      }\n      result.is_retryable = false;\n      break;\n    default:\n      result.error_code = `HTTP_${statusCode}`;\n      result.error_message = body.detail || body.message || 'Client error';\n      result.is_retryable = false;\n  }\n  \n  result.action = 'fail';\n  return { json: result };\n}\n\n// ============================================\n// SERVER ERRORS (5xx)\n// ============================================\nif (statusCode >= 500) {\n  result.status = 'server_error';\n  result.error_code = `HTTP_${statusCode}`;\n  result.error_message = body.detail || body.message || 'ElevenLabs server error';\n  result.is_retryable = true;\n  result.retry_delay_ms = Math.min(2000 * Math.pow(2, prevData.retry_count), 60000); // Longer backoff for server errors\n  result.action = prevData.retry_count < prevData.max_retries ? 'retry' : 'fail';\n  return { json: result };\n}\n\n// Unknown status\nresult.error_code = 'UNKNOWN_STATUS';\nresult.error_message = `Unexpected status code: ${statusCode}`;\nresult.action = 'fail';\nreturn { json: result };"
+      },
+      "id": "classify-response",
+      "name": "Classify API Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "complete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "fail",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "route-action",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1568,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"call_initiated\": true,\n  \"call_id\": \"{{ $json.response_data.conversation_id }}\",\n  \"conversation_id\": \"{{ $json.response_data.conversation_id }}\",\n  \"call_sid\": \"{{ $json.response_data.call_sid }}\",\n  \"client_data_injected\": true,\n  \"initiated\": true,\n  \"call_attempted\": true,\n  \"call_failed\": false,\n  \"retry_count\": {{ $json.retry_count }},\n  \"retries_exhausted\": false,\n  \"sanitized_phone\": \"{{ $json.sanitized.phone }}\",\n  \"message\": \"Call initiated successfully\",\n  \"customer\": {\n    \"phone\": \"{{ $json.sanitized.phone }}\",\n    \"name\": \"{{ $json.sanitized.customer_name }}\"\n  },\n  \"request_id\": \"{{ $json.metadata.request_id }}\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond: Call Initiated",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Math.ceil($json.retry_delay_ms / 1000) }}",
+        "unit": "seconds"
+      },
+      "id": "wait-for-retry",
+      "name": "Wait for Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "payload",
+              "name": "payload",
+              "value": "={{ $json.payload }}",
+              "type": "object"
+            },
+            {
+              "id": "metadata",
+              "name": "metadata",
+              "value": "={{ $json.metadata }}",
+              "type": "object"
+            },
+            {
+              "id": "sanitized",
+              "name": "sanitized",
+              "value": "={{ $json.sanitized }}",
+              "type": "object"
+            },
+            {
+              "id": "retry_count",
+              "name": "retry_count",
+              "value": "={{ $json.retry_count + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "max_retries",
+              "name": "max_retries",
+              "value": "={{ $json.max_retries }}",
+              "type": "number"
+            },
+            {
+              "id": "last_error",
+              "name": "last_error",
+              "value": "={{ $json.error_message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "increment-retry",
+      "name": "Increment Retry Counter",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2032,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"call_initiated\": false,\n  \"call_id\": null,\n  \"client_data_injected\": true,\n  \"initiated\": false,\n  \"call_attempted\": true,\n  \"call_failed\": true,\n  \"retries_exhausted\": {{ $json.retry_count >= $json.max_retries }},\n  \"retry_count\": {{ $json.retry_count }},\n  \"error_code\": \"{{ $json.error_code }}\",\n  \"message\": \"{{ $json.error_message }}\",\n  \"is_retryable\": {{ $json.is_retryable }},\n  \"sanitized_phone\": \"{{ $json.sanitized.phone }}\",\n  \"customer\": {\n    \"phone\": \"{{ $json.sanitized.phone }}\",\n    \"name\": \"{{ $json.sanitized.customer_name }}\"\n  },\n  \"request_id\": \"{{ $json.metadata.request_id }}\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {
+          "responseCode": "={{ ['RATE_LIMIT'].includes($json.error_code) ? 429 : ['UNAUTHORIZED', 'FORBIDDEN'].includes($json.error_code) ? 403 : ['VALIDATION_ERROR', 'BAD_REQUEST'].includes($json.error_code) ? 400 : ['NOT_FOUND'].includes($json.error_code) ? 404 : 500 }}"
+        }
+      },
+      "id": "respond-failure",
+      "name": "Respond: Call Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1808,
+        352
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Initiate Call": {
+      "main": [
+        [
+          {
+            "node": "Validate & Sanitize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Sanitize Input": {
+      "main": [
+        [
+          {
+            "node": "Validation Passed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Passed?": {
+      "main": [
+        [
+          {
+            "node": "Build ElevenLabs Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build ElevenLabs Payload": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs: Initiate Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs: Initiate Call": {
+      "main": [
+        [
+          {
+            "node": "Classify API Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify API Response": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "Respond: Call Initiated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Call Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Retry": {
+      "main": [
+        [
+          {
+            "node": "Increment Retry Counter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry Counter": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs: Initiate Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": [
+    "DEV"
+  ]
+}

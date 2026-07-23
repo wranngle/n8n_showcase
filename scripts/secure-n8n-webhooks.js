@@ -7,6 +7,12 @@
  * Usage:
  *   node scripts/secure-n8n-webhooks.js              # dry-run + report
  *   node scripts/secure-n8n-webhooks.js --apply      # actually mutate
+ *
+ * WARNING (2026-07 audit): the HMAC_EXEMPT annotations below were written
+ * against a January 2026 fleet and misidentify today's live workflows.
+ * Running --apply without re-verifying the exemption list against
+ * workflows/registry.yaml would bind Header Auth onto the three active
+ * ElevenLabs HMAC receivers and break them. Re-verify before --apply.
  */
 
 const env = require('./lib/env');

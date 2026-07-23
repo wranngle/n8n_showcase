@@ -1,0 +1,1138 @@
+{
+  "name": "[DEV] eval / testing-framework-data-table-api",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "webhook-requirements",
+      "name": "Webhook Requirements",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "path": "testing-requirements",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "code-router",
+      "name": "Parse Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst query = $input.first().json.query || {};\n\nreturn [{\n  json: {\n    operation: body.operation || 'get',\n    data: body.data || {},\n    id: body.id || query.id,\n    limit: parseInt(query.limit) || 50,\n    offset: parseInt(query.offset) || 0\n  }\n}];"
+      }
+    },
+    {
+      "id": "switch-operation",
+      "name": "Route by Operation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "insert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "insert"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "id": "dt-req-insert",
+      "name": "Insert Requirement",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-requirements"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "requirement_id": "={{ $json.data.requirement_id }}",
+            "user_intent": "={{ $json.data.user_intent }}",
+            "verbatim_quote": "={{ $json.data.verbatim_quote }}",
+            "captured_at": "={{ $json.data.captured_at }}",
+            "status": "={{ $json.data.status }}",
+            "source": "={{ $json.data.source }}",
+            "linked_tests": "={{ JSON.stringify($json.data.linked_tests || []) }}",
+            "tags": "={{ JSON.stringify($json.data.tags || []) }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "dt-req-update",
+      "name": "Update Requirement",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -100
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-requirements"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requirement_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        }
+      }
+    },
+    {
+      "id": "dt-req-delete",
+      "name": "Delete Requirement",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-requirements"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "requirement_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dt-req-get",
+      "name": "Get Requirements",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        100
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-requirements"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: $json } }}"
+      }
+    },
+    {
+      "id": "webhook-cases",
+      "name": "Webhook Cases",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "path": "testing-cases",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "code-cases",
+      "name": "Parse Cases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst query = $input.first().json.query || {};\nreturn [{ json: { operation: body.operation || 'get', data: body.data || {}, id: body.id || query.id } }];"
+      }
+    },
+    {
+      "id": "switch-cases",
+      "name": "Route Cases Op",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "insert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "insert"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "delete"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "id": "dt-cases-insert",
+      "name": "Insert Case",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-cases"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "test_id": "={{ $json.data.test_id }}",
+            "type": "={{ $json.data.type }}",
+            "requirement_id": "={{ $json.data.requirement_id }}",
+            "name": "={{ $json.data.name }}",
+            "description": "={{ $json.data.description }}",
+            "input": "={{ JSON.stringify($json.data.input || {}) }}",
+            "expected_output": "={{ JSON.stringify($json.data.expected_output || {}) }}",
+            "tags": "={{ JSON.stringify($json.data.tags || []) }}",
+            "enabled": "={{ $json.data.enabled }}",
+            "created_at": "={{ $json.data.created_at }}",
+            "updated_at": "={{ $json.data.updated_at }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "dt-cases-update",
+      "name": "Update Case",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-cases"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "test_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        }
+      }
+    },
+    {
+      "id": "dt-cases-delete",
+      "name": "Delete Case",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        480
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-cases"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "test_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "dt-cases-get",
+      "name": "Get Cases",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        550
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-cases"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "respond-cases",
+      "name": "Respond Cases",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: $json } }}"
+      }
+    },
+    {
+      "id": "webhook-results",
+      "name": "Webhook Results",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        800
+      ],
+      "parameters": {
+        "path": "testing-results",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "code-results",
+      "name": "Parse Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        800
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst query = $input.first().json.query || {};\nreturn [{ json: { operation: body.operation || 'get', data: body.data || {}, id: body.id || query.id, execution_id: query.execution_id } }];"
+      }
+    },
+    {
+      "id": "switch-results",
+      "name": "Route Results Op",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        800
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "insert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "insert"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "id": "dt-results-insert",
+      "name": "Insert Result",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        750
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-results"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "result_id": "={{ $json.data.result_id }}",
+            "test_id": "={{ $json.data.test_id }}",
+            "execution_id": "={{ $json.data.execution_id }}",
+            "requirement_id": "={{ $json.data.requirement_id }}",
+            "status": "={{ $json.data.status }}",
+            "actual_output": "={{ JSON.stringify($json.data.actual_output || {}) }}",
+            "latency_ms": "={{ $json.data.latency_ms }}",
+            "error_message": "={{ $json.data.error_message }}",
+            "executed_at": "={{ $json.data.executed_at }}",
+            "assertions_passed": "={{ $json.data.assertions_passed }}",
+            "assertions_failed": "={{ $json.data.assertions_failed }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "dt-results-get",
+      "name": "Get Results",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        900
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-results"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "respond-results",
+      "name": "Respond Results",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        800
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: $json } }}"
+      }
+    },
+    {
+      "id": "webhook-runs",
+      "name": "Webhook Runs",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1200
+      ],
+      "parameters": {
+        "path": "testing-runs",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "code-runs",
+      "name": "Parse Runs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        1200
+      ],
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || {};\nconst query = $input.first().json.query || {};\nreturn [{ json: { operation: body.operation || 'get', data: body.data || {}, id: body.id || query.id } }];"
+      }
+    },
+    {
+      "id": "switch-runs",
+      "name": "Route Runs Op",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        440,
+        1200
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "insert",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "insert"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "combinator": "and"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.operation }}",
+                    "rightValue": "update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              },
+              "renameOutput": true,
+              "outputKey": "update"
+            }
+          ]
+        },
+        "fallbackOutput": "extra",
+        "options": {}
+      }
+    },
+    {
+      "id": "dt-runs-insert",
+      "name": "Insert Run",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        1100
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-runs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "execution_id": "={{ $json.data.execution_id }}",
+            "started_at": "={{ $json.data.started_at }}",
+            "completed_at": "={{ $json.data.completed_at }}",
+            "triggered_by": "={{ $json.data.triggered_by }}",
+            "trigger_source": "={{ $json.data.trigger_source }}",
+            "total_tests": "={{ $json.data.total_tests }}",
+            "passed": "={{ $json.data.passed }}",
+            "failed": "={{ $json.data.failed }}",
+            "errors": "={{ $json.data.errors }}",
+            "skipped": "={{ $json.data.skipped }}",
+            "pass_rate": "={{ $json.data.pass_rate }}",
+            "avg_latency_ms": "={{ $json.data.avg_latency_ms }}"
+          }
+        }
+      }
+    },
+    {
+      "id": "dt-runs-update",
+      "name": "Update Run",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        1200
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-runs"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "execution_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        }
+      }
+    },
+    {
+      "id": "dt-runs-get",
+      "name": "Get Runs",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        1300
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "mode": "name",
+          "value": "testing-runs"
+        },
+        "returnAll": true
+      }
+    },
+    {
+      "id": "respond-runs",
+      "name": "Respond Runs",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        1200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, data: $json } }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Requirements": {
+      "main": [
+        [
+          {
+            "node": "Parse Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Request": {
+      "main": [
+        [
+          {
+            "node": "Route by Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Operation": {
+      "main": [
+        [
+          {
+            "node": "Insert Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Requirement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Requirements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Requirement": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Requirement": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Requirement": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Requirements": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Cases": {
+      "main": [
+        [
+          {
+            "node": "Parse Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Cases": {
+      "main": [
+        [
+          {
+            "node": "Route Cases Op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Cases Op": {
+      "main": [
+        [
+          {
+            "node": "Insert Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Case": {
+      "main": [
+        [
+          {
+            "node": "Respond Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Case": {
+      "main": [
+        [
+          {
+            "node": "Respond Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Case": {
+      "main": [
+        [
+          {
+            "node": "Respond Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Cases": {
+      "main": [
+        [
+          {
+            "node": "Respond Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Results": {
+      "main": [
+        [
+          {
+            "node": "Parse Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Results": {
+      "main": [
+        [
+          {
+            "node": "Route Results Op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Results Op": {
+      "main": [
+        [
+          {
+            "node": "Insert Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Result": {
+      "main": [
+        [
+          {
+            "node": "Respond Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Results": {
+      "main": [
+        [
+          {
+            "node": "Respond Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Runs": {
+      "main": [
+        [
+          {
+            "node": "Parse Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Runs": {
+      "main": [
+        [
+          {
+            "node": "Route Runs Op",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Runs Op": {
+      "main": [
+        [
+          {
+            "node": "Insert Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Run": {
+      "main": [
+        [
+          {
+            "node": "Respond Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Run": {
+      "main": [
+        [
+          {
+            "node": "Respond Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Runs": {
+      "main": [
+        [
+          {
+            "node": "Respond Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

@@ -1,0 +1,391 @@
+{
+  "name": "[DEV] sarah / email-tool",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "ElevenLabs Email Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sarah-send-email",
+        "responseMode": "responseNode",
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "auth-check",
+      "name": "Auth: Check Origin",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "id": "elevenlabs-origin",
+              "leftValue": "={{ $json.headers['user-agent'] || '' }}",
+              "rightValue": "ElevenLabs",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "localhost-dev",
+              "leftValue": "={{ $json.headers.host || '' }}",
+              "rightValue": "localhost",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "secret-header",
+              "leftValue": "={{ $json.headers['x-webhook-secret'] }}",
+              "rightValue": "wranngle-email-2024",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "respond-unauthorized",
+      "name": "Error: Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        460
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: 'UNAUTHORIZED', message: 'Invalid authentication' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    },
+    {
+      "id": "extract-params",
+      "name": "Extract Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        600,
+        200
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "request_id",
+              "name": "request_id",
+              "value": "={{ 'email_' + $now.toMillis() + '_' + Math.random().toString(36).substring(7) }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ $json.body?.email || $json.email || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "first_name",
+              "name": "first_name",
+              "value": "={{ $json.body?.caller_name || $json.body?.first_name || $json.caller_name || $json.first_name || 'there' }}",
+              "type": "string"
+            },
+            {
+              "id": "industry",
+              "name": "industry",
+              "value": "={{ $json.body?.industry || $json.industry || 'service business' }}",
+              "type": "string"
+            },
+            {
+              "id": "company_name",
+              "name": "company_name",
+              "value": "={{ $json.body?.company_name || $json.company_name || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "template",
+              "name": "template",
+              "value": "={{ $json.body?.template || $json.template || 'demo' }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "validate-email",
+      "name": "Validate Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        820,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "email-format",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "respond-invalid-email",
+      "name": "Error: Invalid Email",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        360
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: 'INVALID_EMAIL', message: 'Invalid or missing email address', provided: $json.email, request_id: $json.request_id } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "compose-email",
+      "name": "Compose Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1040,
+        140
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to",
+              "name": "to_email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "subject",
+              "name": "subject",
+              "value": "={{ $json.template === 'recap' ? 'Your Wranngle Conversation Recap' : $json.template === 'followup' ? 'Following Up from Wranngle' : 'Try Wranngle\\'s AI Demo' }}",
+              "type": "string"
+            },
+            {
+              "id": "html_body",
+              "name": "html_body",
+              "value": "={{ (() => { const name = $json.first_name; const company = $json.company_name; const industry = $json.industry; const templates = { 'demo': `<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\"><h2>Hi ${name}!</h2><p>Thanks for your interest in Wranngle's AI hotline.</p><p><strong>Try our demo:</strong> Call <a href=\"tel:<REDACTED:phone>\">(888) 266-2193</a> and pretend you're a customer:</p><ul><li>First call: Say you have a burst pipe at 2 AM (emergency)</li><li>Second call: Ask about scheduling a routine appointment</li></ul><p>See how the AI handles each situation differently!</p><p><strong>Pricing:</strong></p><ul><li>Growth Bundle: $500/month (full features)</li><li>Voice-Only: $200/month (basic)</li></ul><p>Questions? Reply to this email or visit <a href=\"https://wranngle.com\">wranngle.com</a></p><p>Best,<br>The Wranngle Team</p></body></html>`, 'recap': `<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\"><h2>Hi ${name}!</h2><p>Thanks for chatting with us about ${company || 'your ' + industry + ' business'}.</p><p><strong>Quick recap:</strong></p><ul><li>We build AI hotlines that answer after-hours calls</li><li>Triages emergencies from routine requests</li><li>Only pages you when it actually matters</li></ul><p><strong>Demo:</strong> Call <a href=\"tel:<REDACTED:phone>\">(888) 266-2193</a> to try it yourself.</p><p><strong>Pricing:</strong> $500/month Growth Bundle or $200/month Voice-Only</p><p>Questions? Just reply to this email.</p><p>Best,<br>The Wranngle Team</p></body></html>`, 'followup': `<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\"><h2>Hi ${name}!</h2><p>Following up on our conversation about Wranngle for your ${industry} business.</p><p>Ready to try the demo? Call <a href=\"tel:<REDACTED:phone>\">(888) 266-2193</a></p><p>Have questions? Reply to this email anytime.</p><p>Best,<br>The Wranngle Team</p></body></html>` }; return templates[$json.template] || templates['demo']; })() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "include": "all"
+        }
+      }
+    },
+    {
+      "id": "send-email-smtp",
+      "name": "Send Email via SMTP",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1260,
+        140
+      ],
+      "parameters": {
+        "fromEmail": "sarah@wranngle.com",
+        "toEmail": "={{ $json.to_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "html": "={{ $json.html_body }}",
+        "options": {
+          "replyTo": "sarah@wranngle.com"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "respond-success",
+      "name": "Success: Email Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        80
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'Email sent successfully', recipient: $('Extract Parameters').first().json.email, first_name: $('Extract Parameters').first().json.first_name, request_id: $('Extract Parameters').first().json.request_id } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "respond-failure",
+      "name": "Error: Send Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        220
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: 'EMAIL_SEND_FAILED', message: $json.data?.error || 'Failed to send email', recipient: $('Extract Parameters').first().json.email, request_id: $('Extract Parameters').first().json.request_id } }}",
+        "options": {
+          "responseCode": 500
+        }
+      }
+    }
+  ],
+  "connections": {
+    "ElevenLabs Email Webhook": {
+      "main": [
+        [
+          {
+            "node": "Auth: Check Origin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auth: Check Origin": {
+      "main": [
+        [
+          {
+            "node": "Extract Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Parameters": {
+      "main": [
+        [
+          {
+            "node": "Validate Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Email": {
+      "main": [
+        [
+          {
+            "node": "Compose Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Invalid Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compose Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email via SMTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email via SMTP": {
+      "main": [
+        [
+          {
+            "node": "Success: Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error: Send Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

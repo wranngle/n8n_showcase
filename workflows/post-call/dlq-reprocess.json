@@ -1,0 +1,83 @@
+{
+  "name": "[DEV] post-call / dlq-reprocess",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "id": "dlq-webhook",
+      "name": "DLQ Reprocess Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        256,
+        304
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "call-completed-dlq-reprocess",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "process-dlq",
+      "name": "Process DLQ Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const input = $input.item.json.body || $input.item.json;\nconst dlqId = input.dlq_id;\nconst forceRetry = input.force_retry || false;\nif (!dlqId) {\n  return { json: { reprocess_attempted: false, result: 'failed', error: 'dlq_id is required', timestamp: new Date().toISOString() } };\n}\n// Simulate DLQ lookup (not_found for unknown IDs)\nconst knownDlq = {};\nconst found = !!knownDlq[dlqId];\nreturn { json: {\n  reprocess_attempted: true,\n  result: found ? 'success' : 'not_found',\n  dlq_id: dlqId,\n  force_retry: forceRetry,\n  message: found ? 'Event requeued for processing' : 'DLQ entry not found',\n  timestamp: new Date().toISOString()\n}};"
+      }
+    },
+    {
+      "id": "respond-dlq",
+      "name": "Respond DLQ",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        704,
+        304
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "DLQ Reprocess Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process DLQ Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process DLQ Request": {
+      "main": [
+        [
+          {
+            "node": "Respond DLQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

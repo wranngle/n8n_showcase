@@ -1,0 +1,332 @@
+{
+  "name": "[DEV] eval / sris-master-orchestrator",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "SRIS Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "path": "sris-orchestrator",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "parse-config",
+      "name": "Parse Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = $input.first().json.body || $input.first().json || {};\n\nconst config = {\n  mode: input.mode || 'full',\n  trigger: input.trigger || 'manual',\n  target_agents: input.target_agents || ['<REDACTED:elevenlabs-agent-id>'],\n  target_workflows: input.target_workflows || [],\n  n8n_eval_webhook: input.n8n_eval_webhook || 'https://n8n.wranngle.com/webhook/parallel-eval-runner-v6',\n  elevenlabs_eval_webhook: 'https://n8n.wranngle.com/webhook/elevenlabs-conversation-eval',\n  thresholds: {\n    n8n_pass_rate_critical: 80,\n    n8n_pass_rate_warning: 95,\n    elevenlabs_pass_rate_critical: 75,\n    elevenlabs_tool_accuracy_critical: 85\n  },\n  started_at: new Date().toISOString(),\n  run_id: `sris_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`\n};\n\nreturn [{ json: config }];"
+      }
+    },
+    {
+      "id": "run-n8n-eval",
+      "name": "Run n8n Evaluation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.n8n_eval_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limit: 100, batch_size: 25 }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "run-elevenlabs-eval",
+      "name": "Run ElevenLabs Evaluation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Parse Config').item.json.elevenlabs_eval_webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agent_id: $('Parse Config').item.json.target_agents[0] }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      }
+    },
+    {
+      "id": "aggregate-metrics",
+      "name": "Aggregate Unified Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nconst config = $('Parse Config').item.json;\n\nlet n8nResults = null;\nlet elevenlabsResults = null;\n\nfor (const item of items) {\n  const data = item.json;\n  if (data.summary && data.summary.total_tests !== undefined && !data.summary.total_scenarios) {\n    n8nResults = data;\n  } else if (data.summary && data.summary.total_scenarios !== undefined) {\n    elevenlabsResults = data.evaluation || data;\n  } else if (data.evaluation) {\n    elevenlabsResults = data.evaluation;\n  }\n}\n\nconst n8nPassRate = n8nResults?.summary?.pass_rate ? parseFloat(n8nResults.summary.pass_rate) : 100;\nconst n8nLatency = n8nResults?.summary?.avg_latency_ms || 0;\n\nconst elPassRate = elevenlabsResults?.summary?.pass_rate ? parseFloat(elevenlabsResults.summary.pass_rate) : 100;\nconst elToolAccuracy = elevenlabsResults?.summary?.avg_tool_accuracy ? parseFloat(elevenlabsResults.summary.avg_tool_accuracy) : 100;\n\nconst thresholds = config.thresholds;\n\nlet overallStatus = 'OK';\nlet actions = [];\n\nif (n8nPassRate < thresholds.n8n_pass_rate_critical) {\n  overallStatus = 'CRITICAL';\n  actions.push({ type: 'n8n_autocorrect', reason: `n8n pass rate ${n8nPassRate}% below critical threshold ${thresholds.n8n_pass_rate_critical}%` });\n} else if (n8nPassRate < thresholds.n8n_pass_rate_warning) {\n  if (overallStatus !== 'CRITICAL') overallStatus = 'WARNING';\n}\n\nif (elPassRate < thresholds.elevenlabs_pass_rate_critical || elToolAccuracy < thresholds.elevenlabs_tool_accuracy_critical) {\n  overallStatus = 'CRITICAL';\n  actions.push({ type: 'elevenlabs_autocorrect', reason: `ElevenLabs pass rate ${elPassRate}% or tool accuracy ${elToolAccuracy}% below threshold`, agent_id: config.target_agents[0], dominant_pattern: elevenlabsResults?.dominant_pattern });\n}\n\nconst unifiedMetrics = {\n  run_id: config.run_id,\n  trigger: config.trigger,\n  timestamp: new Date().toISOString(),\n  overall_status: overallStatus,\n  n8n_stack: {\n    pass_rate: n8nPassRate,\n    avg_latency_ms: n8nLatency,\n    total_tests: n8nResults?.summary?.total_tests || 0,\n    failures: n8nResults?.failure_count || 0\n  },\n  elevenlabs_stack: {\n    pass_rate: elPassRate,\n    tool_accuracy: elToolAccuracy,\n    total_scenarios: elevenlabsResults?.summary?.total_scenarios || 0,\n    failures: elevenlabsResults?.summary?.failed || 0,\n    dominant_pattern: elevenlabsResults?.dominant_pattern\n  },\n  actions_required: actions,\n  raw_results: { n8n: n8nResults, elevenlabs: elevenlabsResults }\n};\n\nreturn [{ json: unifiedMetrics }];"
+      }
+    },
+    {
+      "id": "check-status",
+      "name": "Check Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "critical",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.overall_status }}",
+                    "rightValue": "CRITICAL"
+                  }
+                ]
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "process-actions",
+      "name": "Process Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        200
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const metrics = $input.first().json;\nconst actions = metrics.actions_required || [];\n\nconst actionItems = [];\nfor (const action of actions) {\n  if (action.type === 'elevenlabs_autocorrect') {\n    actionItems.push({\n      json: {\n        action_type: 'elevenlabs',\n        webhook: 'https://n8n.wranngle.com/webhook/autorefinement-trigger',\n        payload: {\n          agent_id: action.agent_id,\n          dominant_pattern: action.dominant_pattern,\n          failures: metrics.raw_results.elevenlabs?.detailed_results?.filter(r => !r.passed) || [],\n          total_tests: metrics.elevenlabs_stack.total_scenarios,\n          passed_tests: metrics.elevenlabs_stack.total_scenarios - metrics.elevenlabs_stack.failures,\n          source: 'sris-orchestrator'\n        }\n      }\n    });\n  }\n  if (action.type === 'n8n_autocorrect') {\n    actionItems.push({\n      json: {\n        action_type: 'n8n',\n        webhook: null,\n        payload: { reason: action.reason, failures: metrics.raw_results.n8n?.failures_by_category || {} }\n      }\n    });\n  }\n}\n\nif (actionItems.length === 0) {\n  actionItems.push({ json: { action_type: 'none', payload: {} } });\n}\n\nreturn actionItems;"
+      }
+    },
+    {
+      "id": "execute-actions",
+      "name": "Execute Autocorrection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.webhook }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "respond-critical",
+      "name": "Respond: Critical",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1760,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'critical', run_id: $('Aggregate Unified Metrics').item.json.run_id, metrics: $('Aggregate Unified Metrics').item.json, autocorrection_triggered: true, autocorrection_result: $json } }}"
+      }
+    },
+    {
+      "id": "respond-ok",
+      "name": "Respond: OK/Warning",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.overall_status.toLowerCase(), run_id: $json.run_id, metrics: $json, autocorrection_triggered: false } }}"
+      }
+    }
+  ],
+  "connections": {
+    "SRIS Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Config": {
+      "main": [
+        [
+          {
+            "node": "Run n8n Evaluation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Run ElevenLabs Evaluation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run n8n Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run ElevenLabs Evaluation": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Unified Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Unified Metrics": {
+      "main": [
+        [
+          {
+            "node": "Check Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Status": {
+      "main": [
+        [
+          {
+            "node": "Process Actions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: OK/Warning",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Actions": {
+      "main": [
+        [
+          {
+            "node": "Execute Autocorrection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Autocorrection": {
+      "main": [
+        [
+          {
+            "node": "Respond: Critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "tags": [
+    "DEV"
+  ]
+}

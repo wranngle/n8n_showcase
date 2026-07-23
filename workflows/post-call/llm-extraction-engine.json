@@ -1,0 +1,259 @@
+{
+  "name": "[DEV] post-call / llm-extraction-engine",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "validate",
+      "name": "Validate Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\nconst { transcript, agent_system_prompt, extraction_config, metadata } = item;\nconst errors = [];\n\nif (!transcript || typeof transcript !== 'string' || transcript.trim().length === 0) {\n  errors.push('transcript is required and must be a non-empty string');\n}\nif (!agent_system_prompt || typeof agent_system_prompt !== 'string') {\n  errors.push('agent_system_prompt is required');\n}\nif (!extraction_config || !Array.isArray(extraction_config.categories) || extraction_config.categories.length === 0) {\n  errors.push('extraction_config.categories must be a non-empty array');\n} else {\n  for (const cat of extraction_config.categories) {\n    if (!cat.category_id || !Array.isArray(cat.fields) || cat.fields.length === 0) {\n      errors.push(`Category '${cat.category_id || 'unknown'}' must have category_id and non-empty fields`);\n    }\n  }\n}\n\nconst extraction_id = 'ext_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);\n\nif (errors.length > 0) {\n  return [{ json: { valid: false, extraction_id, errors } }];\n}\n\nreturn [{ json: { valid: true, extraction_id, transcript, agent_system_prompt, extraction_config, metadata: metadata || {} } }];"
+      }
+    },
+    {
+      "id": "route_valid",
+      "name": "Check Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "valid-check",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "error_response",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const { extraction_id, errors } = $input.first().json;\nreturn [{ json: {\n  extraction_id,\n  timestamp: new Date().toISOString(),\n  model: 'gemini-3-pro',\n  categories_processed: 0,\n  fields: [],\n  errors: errors.map(e => ({ type: 'validation', message: e }))\n} }];"
+      }
+    },
+    {
+      "id": "split_cats",
+      "name": "Split Categories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const { extraction_id, transcript, agent_system_prompt, extraction_config, metadata, google_api_key } = $input.first().json;\nconst global_context = extraction_config.global_context || {};\nreturn extraction_config.categories.map(category => ({\n  json: { extraction_id, transcript, agent_system_prompt, category, global_context, google_api_key }\n}));"
+      }
+    },
+    {
+      "id": "build_prompt",
+      "name": "Build 5-Component Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const { category, transcript, agent_system_prompt, global_context, google_api_key } = $input.item.json;\n\nfunction inferStrictness(field) {\n  if (field.strictness) return field.strictness;\n  if (['boolean','phone','email'].includes(field.type)) return 'high';\n  if (field.validation && field.validation.pattern) return 'high';\n  if (field.type === 'enum' && field.values && field.values.length <= 5) return 'high';\n  if (field.type === 'enum') return 'medium';\n  if (field.type === 'string' && field.required) return 'medium';\n  if (/summary|notes|description/i.test(field.field_id)) return 'low';\n  if (field.type === 'string' && !field.required) return 'low';\n  return 'medium';\n}\n\nconst compA = '== TRANSCRIPT ==\\n' + transcript;\nconst compB = '== CONTEXT ==\\n' + agent_system_prompt;\n\nconst schema = {};\nfor (const f of category.fields) {\n  if (f.type === 'boolean') schema[f.field_id] = 'boolean | null';\n  else if (f.type === 'enum') schema[f.field_id] = (f.values || []).join(' | ');\n  else if (f.type === 'number') schema[f.field_id] = 'number | null';\n  else schema[f.field_id] = 'string | null';\n}\nconst compC = '== RESPONSE SCHEMA ==\\nReturn a JSON object with exactly these keys:\\n' + JSON.stringify(schema, null, 2) + '\\n\\nAlso include a \\\"_rationale\\\" object with the same keys, where each value explains your reasoning.\\nAlso include a \\\"_confidence\\\" object with the same keys, where each value is a number 0.0-1.0.';\n\nconst fieldLines = category.fields.map(function(f) {\n  var prompt = f.prompt || 'Extract the ' + f.field_id + ' from the transcript.';\n  var s = inferStrictness(f);\n  var line = '- **' + f.field_id + '** (' + f.type + '): ' + prompt;\n  if (f.type === 'enum' && f.values) line += '\\n  Allowed values: ' + f.values.join(', ');\n  if (f.required) line += '\\n  Required. Default: ' + JSON.stringify(f.default_value !== undefined ? f.default_value : null);\n  line += '\\n  Strictness: ' + s;\n  return line;\n}).join('\\n\\n');\nconst compD = '== FIELD INSTRUCTIONS ==\\n' + fieldLines;\n\nconst rules = category.context_rules || {};\nvar compE = '== EXTRACTION RULES ==\\nDefault strictness: ' + (rules.default_strictness || 'medium') + '\\nRationale required: ' + (rules.require_rationale !== undefined ? rules.require_rationale : true) + '\\nNull behavior: ' + (rules.null_behavior || 'return_null_with_rationale') + '\\n\\nStrictness guide:\\n- HIGH: Exact match only. Return null if ambiguous. Enums must match exactly.\\n- MEDIUM: Best-effort extraction. Use \\\"unknown\\\" if unsure.\\n- LOW: Flexible summarization. Creative interpretation OK.\\n\\nConfidence scoring: 0.0 = pure guess, 0.5 = some evidence, 0.8 = strong evidence, 1.0 = explicitly stated.\\nIf a field is not mentioned in the transcript at all, return null with confidence 0.0.';\nif (global_context && global_context.agent_identity) compE += '\\nAgent identity: ' + global_context.agent_identity;\nif (global_context && global_context.business_domain) compE += '\\nBusiness domain: ' + global_context.business_domain;\n\nconst fullPrompt = 'You are a structured data extraction engine. Extract fields from the transcript below.\\n\\n' + compA + '\\n\\n' + compB + '\\n\\n' + compC + '\\n\\n' + compD + '\\n\\n' + compE;\n\nreturn { json: { prompt: fullPrompt, category_id: category.category_id, fields: category.fields, context_rules: category.context_rules || {}, google_api_key: google_api_key } };"
+      }
+    },
+    {
+      "id": "call_gemini",
+      "name": "Call Gemini 3 Pro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        400
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": false,
+        "sendHeaders": false,
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "parse_validate",
+      "name": "Parse and Validate Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const input = $input.item.json;\nconst category_id = $('Build 5-Component Prompt').item.json.category_id;\nconst fields = $('Build 5-Component Prompt').item.json.fields;\n\nlet parsed;\ntry {\n  const body = input.body || input;\n  const text = body && body.candidates && body.candidates[0] && body.candidates[0].content && body.candidates[0].content.parts && body.candidates[0].content.parts[0] && body.candidates[0].content.parts[0].text;\n  if (!text) throw new Error('No text in Gemini response');\n  parsed = JSON.parse(text);\n} catch (e) {\n  return { json: {\n    category_id: category_id,\n    envelopes: [],\n    error: { type: 'parse_error', category: category_id, message: 'Failed to parse Gemini response: ' + e.message }\n  } };\n}\n\nconst E164 = /^\\+[1-9]\\d{1,14}$/;\nconst EMAIL = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\nfunction repair(field, raw) {\n  if (raw === null || raw === undefined) return null;\n  if (field.type === 'boolean') {\n    if (typeof raw === 'boolean') return raw;\n    if (typeof raw === 'string') {\n      if (raw.toLowerCase() === 'true') return true;\n      if (raw.toLowerCase() === 'false') return false;\n    }\n    return null;\n  }\n  if (field.type === 'enum' && field.values) {\n    const str = String(raw).trim();\n    const exact = field.values.find(function(v) { return v === str; });\n    if (exact) return exact;\n    const ci = field.values.find(function(v) { return v.toLowerCase() === str.toLowerCase(); });\n    if (ci) return ci;\n    return str;\n  }\n  if (typeof raw === 'string') return raw.trim();\n  return raw;\n}\n\nfunction validate(field, value) {\n  if (value === null || value === undefined) return !field.required;\n  switch (field.type) {\n    case 'boolean': return typeof value === 'boolean';\n    case 'phone': return typeof value === 'string' && E164.test(value);\n    case 'email': return typeof value === 'string' && EMAIL.test(value);\n    case 'enum': return typeof value === 'string' && (!field.values || field.values.includes(value));\n    case 'number': return typeof value === 'number' && !isNaN(value);\n    case 'string': return typeof value === 'string' && value.length > 0;\n    default: return true;\n  }\n}\n\nfunction inferStrictness(field) {\n  if (field.strictness) return field.strictness;\n  if (['boolean','phone','email'].includes(field.type)) return 'high';\n  if (field.type === 'enum' && field.values && field.values.length <= 5) return 'high';\n  if (field.type === 'enum') return 'medium';\n  if (field.type === 'string' && field.required) return 'medium';\n  if (/summary|notes|description/i.test(field.field_id)) return 'low';\n  if (field.type === 'string' && !field.required) return 'low';\n  return 'medium';\n}\n\nconst rationales = parsed._rationale || {};\nconst confidences = parsed._confidence || {};\nconst envelopes = [];\n\nfor (const field of fields) {\n  const raw = parsed[field.field_id];\n  const value = repair(field, raw);\n  const valid = validate(field, value);\n  const finalValue = (!valid && field.required && field.default_value !== undefined) ? field.default_value : value;\n\n  envelopes.push({\n    category: category_id,\n    field_id: field.field_id,\n    value: finalValue,\n    rationale: rationales[field.field_id] || null,\n    confidence: typeof confidences[field.field_id] === 'number' ? confidences[field.field_id] : 0,\n    strictness_applied: inferStrictness(field),\n    validation_passed: valid || (finalValue !== value)\n  });\n}\n\nreturn { json: { category_id: category_id, envelopes: envelopes, error: null } };"
+      }
+    },
+    {
+      "id": "aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const items = $input.all();\nlet extraction_id = 'ext_unknown';\ntry { extraction_id = $('Split Categories').first().json.extraction_id; } catch(e) {}\n\nconst allEnvelopes = [];\nconst allErrors = [];\nlet categoriesProcessed = 0;\n\nfor (const item of items) {\n  const data = item.json;\n  if (data.envelopes && Array.isArray(data.envelopes)) {\n    allEnvelopes.push(...data.envelopes);\n    categoriesProcessed++;\n  }\n  if (data.error) {\n    allErrors.push(data.error);\n  }\n}\n\nconst seen = new Set();\nconst deduped = allEnvelopes.filter(function(e) {\n  const key = e.category + ':' + e.field_id;\n  if (seen.has(key)) return false;\n  seen.add(key);\n  return true;\n});\n\ndeduped.sort(function(a, b) { return a.category.localeCompare(b.category) || a.field_id.localeCompare(b.field_id); });\n\nreturn [{ json: {\n  extraction_id: extraction_id,\n  timestamp: new Date().toISOString(),\n  model: 'gemini-3-pro',\n  categories_processed: categoriesProcessed,\n  fields: deduped,\n  errors: allErrors\n} }];"
+      }
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Inputs": {
+      "main": [
+        [
+          {
+            "node": "Check Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Valid": {
+      "main": [
+        [
+          {
+            "node": "Split Categories",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Categories": {
+      "main": [
+        [
+          {
+            "node": "Build 5-Component Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build 5-Component Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini 3 Pro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini 3 Pro": {
+      "main": [
+        [
+          {
+            "node": "Parse and Validate Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Validate Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

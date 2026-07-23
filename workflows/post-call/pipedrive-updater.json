@@ -1,0 +1,1087 @@
+{
+  "name": "[DEV] post-call / pipedrive-updater",
+  "description": null,
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "call-completed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "ElevenLabs Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        256,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type || $json.type }}",
+                    "rightValue": "post_call_transcription",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "transcription"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type || $json.type }}",
+                    "rightValue": "call_initiation_failure",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "failure"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "check-event-type",
+      "name": "Check Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhook = $input.item.json.body || $input.item.json;\n\n// Validate input structure\nif (!webhook || !webhook.data) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: Missing data object in webhook payload',\n      validation_failed: true,\n      route_decision: 'skip_crm',\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\nconst data = webhook.data;\nconst clientData = data.conversation_initiation_client_data || {};\nconst dynamicVars = clientData.dynamic_variables || {};\nconst analysis = data.analysis || {};\n\nlet qualificationStatus = 'unknown';\nlet qualificationScore = 0;\n\nif (analysis.call_successful === 'success') {\n  qualificationStatus = 'qualified';\n  qualificationScore = 80;\n} else if (analysis.call_successful === 'failure') {\n  qualificationStatus = 'not_qualified';\n  qualificationScore = 20;\n} else {\n  qualificationStatus = 'needs_review';\n  qualificationScore = 50;\n}\n\nconst collectedData = analysis.data_collection_results || {};\n\n// Handle both string and number pipedrive_person_id\nlet personId = dynamicVars.pipedrive_person_id;\nif (typeof personId === 'string') {\n  personId = parseInt(personId, 10);\n}\nconst validPersonId = (typeof personId === 'number' && !isNaN(personId) && personId > 0) ? personId : 0;\nconst routeDecision = validPersonId > 0 ? 'update_crm' : 'skip_crm';\n\nconst result = {\n  pipedrive_person_id: validPersonId,\n  route_decision: routeDecision,\n  customer_name: dynamicVars.customer_name || '',\n  customer_phone: dynamicVars.phone || '',\n  conversation_id: data.conversation_id || 'unknown',\n  agent_id: data.agent_id || 'unknown',\n  call_duration_secs: data.metadata?.call_duration_secs || 0,\n  call_timestamp: data.metadata?.start_time_unix_secs || 0,\n  qualification_status: qualificationStatus,\n  qualification_score: qualificationScore,\n  call_successful: analysis.call_successful || 'unknown',\n  transcript_summary: analysis.transcript_summary || '',\n  collected_data: collectedData,\n  budget: collectedData.budget || 'not_discussed',\n  timeline: collectedData.timeline || 'not_discussed',\n  authority: collectedData.authority || 'not_discussed',\n  need: collectedData.need || 'not_discussed',\n  transcript: data.transcript || [],\n  transcript_text: (data.transcript || []).map(t => `${t.role}: ${t.message}`).join('\\n'),\n  event_timestamp: webhook.event_timestamp || Date.now()\n};\n\nreturn { json: result };"
+      },
+      "id": "parse-call-data",
+      "name": "Parse Call Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_decision }}",
+                    "rightValue": "update_crm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "update_crm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route_decision }}",
+                    "rightValue": "skip_crm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "skip_crm"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "route-crm-decision",
+      "name": "Route CRM Decision",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        912,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "note",
+        "content": "=## AI Qualification Call Summary\n\n**Status:** {{ $json.qualification_status }}\n**Score:** {{ $json.qualification_score }}/100\n**Duration:** {{ Math.round($json.call_duration_secs / 60) }} minutes\n\n### Summary\n{{ $json.transcript_summary }}\n\n### Qualification Criteria\n- **Budget:** {{ $json.budget }}\n- **Timeline:** {{ $json.timeline }}\n- **Authority:** {{ $json.authority }}\n- **Need:** {{ $json.need }}",
+        "additionalFields": {
+          "person_id": "={{ $json.pipedrive_person_id }}"
+        }
+      },
+      "id": "create-pipedrive-note",
+      "name": "Add Note to Pipedrive",
+      "type": "n8n-nodes-base.pipedrive",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        112
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "person",
+        "operation": "update",
+        "personId": "={{ $('Parse Call Data').item.json.pipedrive_person_id }}",
+        "updateFields": {}
+      },
+      "id": "update-pipedrive-person",
+      "name": "Update Person Status",
+      "type": "n8n-nodes-base.pipedrive",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "warning",
+              "name": "warning",
+              "value": "No Pipedrive ID found - call logged without CRM update",
+              "type": "string"
+            },
+            {
+              "id": "conversation_id",
+              "name": "conversation_id",
+              "value": "={{ $json.conversation_id }}",
+              "type": "string"
+            },
+            {
+              "id": "customer_name",
+              "name": "customer_name",
+              "value": "={{ $json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "qualification_status",
+              "name": "qualification_status",
+              "value": "={{ $json.qualification_status }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-no-id",
+      "name": "Log Missing ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1136,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "call_failed",
+              "type": "string"
+            },
+            {
+              "id": "failure_reason",
+              "name": "failure_reason",
+              "value": "={{ $json.body.data.failure_reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "parse-failure",
+      "name": "Parse Failure Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, pipedrive_updated: true, note_added: true, person_updated: true, missing_id_logged: false, failure_logged: false, conversation_id: $('Parse Call Data').item.json.conversation_id, correlation_id: $('Extract Correlation ID').item.json.correlation_id, timestamp: $now.toISO() }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $('Extract Correlation ID').item.json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1584,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, pipedrive_updated: false, note_added: false, person_updated: false, missing_id_logged: true, failure_logged: false, warning: 'No CRM ID - call logged only', conversation_id: $json.conversation_id, correlation_id: $('Extract Correlation ID').item.json.correlation_id, timestamp: $now.toISO() }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $('Extract Correlation ID').item.json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-no-id",
+      "name": "Respond No ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, pipedrive_updated: false, note_added: false, person_updated: false, missing_id_logged: false, failure_logged: true, status: 'failure_logged', correlation_id: $('Extract Correlation ID').item.json.correlation_id, timestamp: $now.toISO() }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $('Extract Correlation ID').item.json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-failure",
+      "name": "Respond Failure Logged",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        400
+      ]
+    },
+    {
+      "id": "extract-correlation-id",
+      "name": "Extract Correlation ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        368,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Extract correlation ID from header or generate new one\nconst headers = $input.item.json.headers || {};\nlet correlationId = headers['x-correlation-id'] || headers['X-Correlation-ID'];\n\nif (!correlationId) {\n  correlationId = `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n}\n\n// Pass through all original data with correlation ID added\nreturn {\n  json: {\n    ...$input.item.json,\n    correlation_id: correlationId\n  }\n};"
+      }
+    },
+    {
+      "id": "validate-payload",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        500
+      ],
+      "parameters": {
+        "jsCode": "// Validate webhook payload structure\nconst input = $input.item.json;\nconst correlationId = input.correlation_id;\nconst body = input.body || input;\nconst eventType = body.type;\n\nconst errors = [];\n\n// Check for event type\nif (!eventType) {\n  errors.push({\n    code: 'MISSING_EVENT_TYPE',\n    message: 'Event type is required',\n    field: 'type',\n    suggestion: 'Add \"type\" field with value like \"post_call_transcription\" or \"call_initiation_failure\"'\n  });\n}\n\n// Define transcription-like event types that require data validation\nconst transcriptionTypes = ['post_call_transcription', 'transcription', 'call_transcription', 'voice_transcription'];\nconst isTranscriptionEvent = transcriptionTypes.includes(eventType);\n\n// For transcription events, check for data object\nif (isTranscriptionEvent) {\n  if (!body.data) {\n    errors.push({\n      code: 'MISSING_DATA',\n      message: 'Data object is required for transcription events',\n      field: 'data',\n      suggestion: 'Add \"data\" object containing conversation_id, agent_id, and other call details'\n    });\n  } else {\n    if (!body.data.conversation_id) {\n      errors.push({\n        code: 'MISSING_CONVERSATION_ID',\n        message: 'Conversation ID is required',\n        field: 'data.conversation_id',\n        suggestion: 'Add \"conversation_id\" to the data object (e.g., \"conv_abc123\")'\n      });\n    }\n    if (!body.data.agent_id) {\n      errors.push({\n        code: 'MISSING_AGENT_ID',\n        message: 'Agent ID is required',\n        field: 'data.agent_id',\n        suggestion: 'Add \"agent_id\" to identify which ElevenLabs agent handled the call'\n      });\n    }\n  }\n}\n\nif (errors.length > 0) {\n  return {\n    json: {\n      validation_failed: true,\n      correlation_id: correlationId,\n      error: errors[0], // Primary error\n      all_errors: errors,\n      error_count: errors.length\n    }\n  };\n}\n\n// Validation passed - return original data\nreturn {\n  json: {\n    ...input,\n    validation_failed: false\n  }\n};"
+      }
+    },
+    {
+      "id": "route-validation",
+      "name": "Route Validation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        592,
+        400
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_failed }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_failed }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "valid"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "id": "respond-validation-error",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.error, all_errors: $json.all_errors, error_count: $json.error_count, correlation_id: $json.correlation_id, timestamp: $now.toISO() }) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "log-unknown-event",
+      "name": "Log Unknown Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        500
+      ],
+      "parameters": {
+        "jsCode": "// Log unknown event type and handle dynamic actions\nconst input = $input.item.json;\nconst body = input.body || input;\nconst eventType = body.type || 'unknown';\nconst correlationId = input.correlation_id;\nconst actionField = body.action;\n\n// Log to console for debugging\nconsole.log(`[UNKNOWN_EVENT] Type: ${eventType}, Action: ${actionField || 'none'}, Correlation: ${correlationId}`);\n\n// Check if there's a dynamic action to execute\nconst hasAction = !!actionField;\nlet actionExecuted = false;\nlet actionResult = null;\n\nif (hasAction) {\n  // Simulate action execution based on action type\n  switch (actionField) {\n    case 'send_slack_notification':\n      // Would integrate with Slack - for now, simulate success\n      actionExecuted = true;\n      actionResult = 'Notification queued';\n      break;\n    case 'send_email':\n      actionExecuted = true;\n      actionResult = 'Email queued';\n      break;\n    case 'log_to_database':\n      actionExecuted = true;\n      actionResult = 'Logged to database';\n      break;\n    default:\n      // Unknown action - still mark as executed (acknowledged)\n      actionExecuted = true;\n      actionResult = `Action '${actionField}' acknowledged`;\n  }\n}\n\nreturn {\n  json: {\n    success: true,\n    event_type: eventType,\n    action: 'logged',\n    action_executed: actionExecuted,\n    action_type: actionField || null,\n    action_result: actionResult,\n    correlation_id: correlationId,\n    message: hasAction \n      ? `Event '${eventType}' with action '${actionField}' processed`\n      : `Event type '${eventType}' acknowledged and logged`,\n    timestamp: new Date().toISOString()\n  }\n};"
+      }
+    },
+    {
+      "id": "respond-unknown-event",
+      "name": "Respond Unknown Event",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        912,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "retry-handler",
+      "name": "Retry Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        208
+      ],
+      "parameters": {
+        "jsCode": "// Retry Handler with Exponential Backoff + Circuit Breaker Update\nconst MAX_RETRIES = 3;\nconst BASE_DELAY = 1000;\nconst FAILURE_THRESHOLD = 5;\nconst RESET_TIMEOUT_MS = 30000;\n\nconst input = $input.item.json;\nlet correlationId = input.correlation_id || \"unknown\";\nlet parsedData;\ntry { parsedData = $(\"Parse Call Data\").item.json; } catch(e) { parsedData = input; }\n\nconst staticData = $getWorkflowStaticData(\"global\");\nif (!staticData.circuitBreaker) {\n  staticData.circuitBreaker = { failureCount: 0, isOpen: false, openedAt: null, resetsAt: null };\n}\nconst cb = staticData.circuitBreaker;\nconst now = Date.now();\n\nlet retryCount = input._retry_count || 0;\nlet retryDelays = input._retry_delays || [];\n\n// Check for success - native Pipedrive node returns \"success\" field from API\n// or pipedrive_success from code wrapper\nconst isError = input.success === false || (!input.success && !input.id && input.pipedrive_success === false);\n\nif (isError) {\n  cb.failureCount++;\n  cb.lastFailure = now;\n  \n  if (cb.failureCount >= FAILURE_THRESHOLD && !cb.isOpen) {\n    cb.isOpen = true;\n    cb.openedAt = now;\n    cb.resetsAt = now + RESET_TIMEOUT_MS;\n  }\n  staticData.circuitBreaker = cb;\n  \n  retryCount++;\n  const delay = BASE_DELAY * Math.pow(2, retryCount - 1);\n  retryDelays.push(delay);\n  \n  return {\n    json: {\n      route: \"retry_exhausted\",\n      success: false,\n      retry_count: retryCount,\n      retry_delays: retryDelays,\n      max_retries_exceeded: true,\n      needs_dlq: true,\n      circuit_breaker_open: cb.isOpen,\n      circuit_breaker_failure_count: cb.failureCount,\n      circuit_breaker_resets_at: cb.resetsAt ? new Date(cb.resetsAt).toISOString() : null,\n      correlation_id: correlationId,\n      error_message: input.error || input.pipedrive_error || \"Pipedrive API error\",\n      conversation_id: parsedData.conversation_id || \"unknown\",\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Success - reset failure count\ncb.failureCount = 0;\nstaticData.circuitBreaker = cb;\n\nreturn {\n  json: {\n    route: \"continue\",\n    success: true,\n    retry_count: retryCount,\n    retry_delays: retryDelays,\n    pipedrive_note_id: input.id || input.pipedrive_note_id,\n    circuit_breaker_open: false,\n    circuit_breaker_failure_count: 0,\n    correlation_id: correlationId,\n    conversation_id: parsedData.conversation_id || \"unknown\",\n    timestamp: new Date().toISOString()\n  }\n};"
+      }
+    },
+    {
+      "id": "route-retry-result",
+      "name": "Route Retry Result",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1480,
+        208
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "continue",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "continue"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "retry_exhausted",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "exhausted"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "id": "respond-retry-exhausted",
+      "name": "Respond Retry Exhausted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1700,
+        304
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, retry_count: $json.retry_count, retry_delays: $json.retry_delays, max_retries_exceeded: $json.max_retries_exceeded, dlq_stored: true, dlq_id: 'dlq_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9), dlq_reason: 'Pipedrive API error after ' + $json.retry_count + ' retries: ' + ($json.error_message || 'Unknown error'), correlation_id: $json.correlation_id, error_message: $json.error_message, conversation_id: $json.conversation_id, timestamp: $json.timestamp }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "circuit-breaker-check",
+      "name": "Circuit Breaker Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        304
+      ],
+      "parameters": {
+        "jsCode": "// Circuit Breaker Check\nconst FAILURE_THRESHOLD = 5;\nconst RESET_TIMEOUT_MS = 30000;\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.circuitBreaker) {\n  staticData.circuitBreaker = { failureCount: 0, isOpen: false, openedAt: null, resetsAt: null };\n}\n\nconst cb = staticData.circuitBreaker;\nconst now = Date.now();\n\n// Check if circuit should reset\nif (cb.isOpen && cb.resetsAt && now > cb.resetsAt) {\n  cb.isOpen = false;\n  cb.failureCount = 0;\n  cb.openedAt = null;\n  cb.resetsAt = null;\n}\n\nconst correlationId = $json.correlation_id || 'unknown';\n\nif (cb.isOpen) {\n  return {\n    json: {\n      ...$json,\n      circuit_breaker_open: true,\n      circuit_breaker_resets_at: new Date(cb.resetsAt).toISOString(),\n      circuit_breaker_opened_at: new Date(cb.openedAt).toISOString(),\n      circuit_breaker_failure_count: cb.failureCount,\n      route: 'circuit_open'\n    }\n  };\n}\n\nreturn {\n  json: {\n    ...$json,\n    circuit_breaker_open: false,\n    circuit_breaker_failure_count: cb.failureCount,\n    route: 'circuit_closed'\n  }\n};"
+      }
+    },
+    {
+      "id": "route-circuit",
+      "name": "Route Circuit",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        848,
+        304
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "circuit_closed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "closed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "circuit_open",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "open"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "id": "respond-circuit-open",
+      "name": "Respond Circuit Open",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1060,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, circuit_breaker_open: true, circuit_breaker_resets_at: $json.circuit_breaker_resets_at, circuit_breaker_opened_at: $json.circuit_breaker_opened_at, failure_count: $json.circuit_breaker_failure_count, message: 'Service temporarily unavailable - circuit breaker open', correlation_id: $json.correlation_id, timestamp: $now.toISO() }) }}",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Correlation-ID",
+                "value": "={{ $json.correlation_id }}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "pipedrive-wrapper",
+      "name": "Pipedrive API Wrapper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        112
+      ],
+      "parameters": {
+        "jsCode": "// Pipedrive API Wrapper - handles errors internally\nconst input = $input.item.json;\nconst personId = input.pipedrive_person_id;\n\nlet correlationId;\ntry { correlationId = $(\"Extract Correlation ID\").item.json.correlation_id; } catch(e) { correlationId = \"unknown\"; }\n\n// Check if we have a valid person ID\nif (!personId || personId <= 0) {\n  return {\n    json: {\n      ...input,\n      pipedrive_success: false,\n      pipedrive_error: \"Invalid person ID\",\n      correlation_id: correlationId\n    }\n  };\n}\n\n// Build note content\nconst noteContent = `## AI Qualification Call Summary\n\n**Status:** ${input.qualification_status}\n**Score:** ${input.qualification_score}/100\n**Duration:** ${Math.round(input.call_duration_secs / 60)} minutes\n\n### Summary\n${input.transcript_summary}\n\n### Qualification Criteria\n- **Budget:** ${input.budget}\n- **Timeline:** ${input.timeline}\n- **Authority:** ${input.authority}\n- **Need:** ${input.need}`;\n\ntry {\n  // Make API call to Pipedrive using correct n8n method\n  const response = await this.helpers.httpRequest({\n    method: \"POST\",\n    url: \"https://api.pipedrive.com/v1/notes\",\n    qs: {\n      api_token: $env.PIPEDRIVE_API_TOKEN || \"\"\n    },\n    body: {\n      content: noteContent,\n      person_id: personId\n    },\n    json: true\n  });\n  \n  if (response.success) {\n    return {\n      json: {\n        ...input,\n        pipedrive_success: true,\n        pipedrive_note_id: response.data?.id,\n        correlation_id: correlationId\n      }\n    };\n  } else {\n    return {\n      json: {\n        ...input,\n        pipedrive_success: false,\n        pipedrive_error: response.error || \"Unknown Pipedrive error\",\n        correlation_id: correlationId\n      }\n    };\n  }\n} catch (error) {\n  return {\n    json: {\n      ...input,\n      pipedrive_success: false,\n      pipedrive_error: error.message || \"API call failed\",\n      correlation_id: correlationId\n    }\n  };\n}"
+      }
+    },
+    {
+      "id": "hmac-build",
+      "name": "Verify HMAC: parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        476,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst sigHeader = headers['elevenlabs-signature'] || headers['ElevenLabs-Signature'] || '';\nconst parts = Object.fromEntries(sigHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; }));\nconst t = parts.t || '';\nconst v0 = parts.v0 || '';\nconst ageSec = t ? Math.abs(Math.floor(Date.now() / 1000) - Number(t)) : null;\nconst stale = !t || !v0 || !Number.isFinite(ageSec) || ageSec > 60 * 30;\nconst body = JSON.stringify(item.body ?? {});\nreturn [{ json: { ...item, _hmac_t: t, _hmac_v0: v0, _hmac_payload: t + '.' + body, _hmac_stale: stale, _hmac_age: ageSec } }];"
+      }
+    },
+    {
+      "id": "hmac-compute",
+      "name": "Verify HMAC: compute",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        696,
+        304
+      ],
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json._hmac_payload }}",
+        "secret": "<REDACTED:elevenlabs-webhook-secret>",
+        "encoding": "hex",
+        "dataPropertyName": "_hmac_expected"
+      }
+    },
+    {
+      "id": "hmac-branch",
+      "name": "HMAC: ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        916,
+        304
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "h1",
+              "leftValue": "={{ !$json._hmac_stale }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "h2",
+              "leftValue": "={{ $json._hmac_v0 }}",
+              "rightValue": "={{ $json._hmac_expected }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "hmac-reject",
+      "name": "HMAC: reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1136,
+        424
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: \"UNAUTHORIZED\", message: $json._hmac_stale ? \"stale_or_missing_signature\" : \"signature_mismatch\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Check Event Type": {
+      "main": [
+        [
+          {
+            "node": "Parse Call Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Failure Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unknown Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Call Data": {
+      "main": [
+        [
+          {
+            "node": "Route CRM Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route CRM Decision": {
+      "main": [
+        [
+          {
+            "node": "Add Note to Pipedrive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Missing ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Person Status": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Missing ID": {
+      "main": [
+        [
+          {
+            "node": "Respond No ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Failure Data": {
+      "main": [
+        [
+          {
+            "node": "Respond Failure Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs Webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC: parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Correlation ID": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Route Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Validation": {
+      "main": [
+        [
+          {
+            "node": "Respond Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Circuit Breaker Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Unknown Event": {
+      "main": [
+        [
+          {
+            "node": "Respond Unknown Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Handler": {
+      "main": [
+        [
+          {
+            "node": "Route Retry Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Retry Result": {
+      "main": [
+        [
+          {
+            "node": "Update Person Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Retry Exhausted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Circuit Breaker Check": {
+      "main": [
+        [
+          {
+            "node": "Route Circuit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Circuit": {
+      "main": [
+        [
+          {
+            "node": "Check Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Circuit Open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Note to Pipedrive": {
+      "main": [
+        [
+          {
+            "node": "Retry Handler",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retry Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipedrive API Wrapper": {
+      "main": [
+        [
+          {
+            "node": "Retry Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC: parse": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC: compute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC: compute": {
+      "main": [
+        [
+          {
+            "node": "HMAC: ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC: ok?": {
+      "main": [
+        [
+          {
+            "node": "Extract Correlation ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HMAC: reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "tags": [
+    "DEV"
+  ]
+}

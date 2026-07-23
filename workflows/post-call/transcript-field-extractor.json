@@ -1,0 +1,299 @@
+{
+  "name": "[DEV] post-call / transcript-field-extractor / v2",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extract-transcript-v2",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Fetch ElevenLabs Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Fetch conversation + agent using this.helpers.httpRequest\nconst items = $input.all();\nconst item = items[0];\nconst conversationId = item.json.body.conversation_id;\nconst apiKey = '<REDACTED:elevenlabs-api-key>';\n\nif (!conversationId) {\n  return [{\n    json: {\n      error: true,\n      errorCode: 'MISSING_CONVERSATION_ID',\n      errorMessage: 'conversation_id is required in request body',\n      webhookBody: item.json.body\n    }\n  }];\n}\n\ntry {\n  const conv = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,\n    headers: { 'xi-api-key': apiKey }\n  });\n\n  const agent = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `https://api.elevenlabs.io/v1/convai/agents/${conv.agent_id}`,\n    headers: { 'xi-api-key': apiKey }\n  });\n\n  return [{\n    json: {\n      error: false,\n      conversation: conv,\n      agent: agent,\n      webhookBody: item.json.body\n    }\n  }];\n} catch (e) {\n  const statusCode = e.response?.status || e.statusCode || 500;\n  let errorMessage = e.message;\n  \n  if (statusCode === 404) {\n    errorMessage = `Conversation not found: ${conversationId}`;\n  } else if (statusCode === 401) {\n    errorMessage = 'Invalid ElevenLabs API key';\n  }\n  \n  return [{\n    json: {\n      error: true,\n      errorCode: `ELEVENLABS_API_${statusCode}`,\n      errorMessage: errorMessage,\n      conversationId: conversationId,\n      webhookBody: item.json.body\n    }\n  }];\n}"
+      }
+    },
+    {
+      "id": "7",
+      "name": "Check for Errors",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "error-check",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "8",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": "={{ $json.errorCode.includes('404') ? 404 : 400 }}",
+        "responseBody": "={{ { success: false, error: $json.errorCode, message: $json.errorMessage, conversation_id: $json.conversationId || null, timestamp: new Date().toISOString() } }}"
+      }
+    },
+    {
+      "id": "3",
+      "name": "Assemble 5-Component Bulk Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        400
+      ],
+      "parameters": {
+        "jsCode": "const { conversation: conv, agent, webhookBody } = $json;\n\n// ============================================================================\n// COMPONENT A: CONVERSATION TRANSCRIPT RAW\n// ============================================================================\nlet transcriptRaw = '';\nif (Array.isArray(conv.transcript)) {\n  transcriptRaw = conv.transcript\n    .filter(t => t.message)\n    .map(t => `${t.role.toUpperCase()}: ${t.message}`)\n    .join('\\n');\n} else {\n  transcriptRaw = conv.transcript || '';\n}\n\nif (!transcriptRaw || transcriptRaw.length === 0) {\n  return {\n    json: {\n      error: true,\n      errorCode: 'EMPTY_TRANSCRIPT',\n      errorMessage: 'Conversation has no transcript data',\n      conversationId: conv.conversation_id,\n      agentId: conv.agent_id\n    }\n  };\n}\n\n// ============================================================================\n// COMPONENT B: EXTRACTOR AGENT'S SYSTEM PROMPT\n// ============================================================================\nconst agentSystemPrompt = agent.conversation_config?.agent?.prompt?.prompt || 'No agent prompt available';\n\n// ============================================================================\n// COMPONENT C: DESIRED RESPONSE STRUCTURED SCHEMA (field names and types)\n// ============================================================================\n// Use custom schema if provided, otherwise use the 22-field template\nconst defaultSchema = {\n  \"requestor\": {\n    \"requestor_company_name\": { \"type\": \"string\" },\n    \"requestor_first_name\": { \"type\": \"string\" },\n    \"requestor_last_name\": { \"type\": \"string\" }\n  },\n  \"contact\": {\n    \"contact_first_name\": { \"type\": \"string\" },\n    \"contact_last_name\": { \"type\": \"string\" },\n    \"contact_phone_number\": { \"type\": \"string\" },\n    \"contact_preferred_followup_channel\": { \"type\": \"string\" },\n    \"contact_preferred_followup_time\": { \"type\": \"string\" },\n    \"requested_service_address\": { \"type\": \"string\" },\n    \"requestor_is_contact\": { \"type\": \"boolean\" }\n  },\n  \"request\": {\n    \"existing_request\": { \"type\": \"boolean\" },\n    \"request_affected_asset\": { \"type\": \"string\" },\n    \"request_deadline\": { \"type\": \"string\" },\n    \"request_description\": { \"type\": \"string\" },\n    \"request_summary\": { \"type\": \"string\" }\n  },\n  \"routing\": {\n    \"conversation_transfer_destination\": { \"type\": \"string\" },\n    \"conversation_transfer_reason\": { \"type\": \"string\" },\n    \"conversation_transferred\": { \"type\": \"boolean\" },\n    \"requestor_requested_specific_person\": { \"type\": \"string\" },\n    \"routing_department\": { \"type\": \"string\" },\n    \"routing_site_location\": { \"type\": \"string\" },\n    \"routing_urgency\": { \"type\": \"string\" }\n  }\n};\n\nconst responseSchema = webhookBody.extraction_schema || defaultSchema;\n\n// ============================================================================\n// COMPONENT D: MULTI-PROMPT JSON TEMPLATE (detailed extraction instructions)\n// ============================================================================\nconst extractionInstructions = {\n  \"requestor\": {\n    \"requestor_company_name\": {\n      \"type\": \"string\",\n      \"description\": \"Extract requestor's employer/company name from self-identification phrases. Valid triggers: 'I'm with...', 'calling from...', 'I work for...'. Critical exclusions: (a) Never extract service provider name from agent greeting, (b) Ignore company being called. Return null when no company affiliation stated.\"\n    },\n    \"requestor_first_name\": {\n      \"type\": \"string\",\n      \"description\": \"Extract first name of person calling from self-introduction. Target phrases: 'This is [name]', 'My name is [name]'. Extract ONLY first name component. Return null if no first name provided.\"\n    },\n    \"requestor_last_name\": {\n      \"type\": \"string\",\n      \"description\": \"Extract ONLY last name of person calling. Exclude first names, titles/honorifics. Capture compound surnames completely (e.g., 'De La Vega'). Return null when no last name provided.\"\n    }\n  },\n  \"contact\": {\n    \"contact_first_name\": {\n      \"type\": \"string\",\n      \"description\": \"Extract first name of person designated for follow-up. Default: same as requestor_first_name. Override only when requestor explicitly designates alternate contact.\"\n    },\n    \"contact_last_name\": {\n      \"type\": \"string\",\n      \"description\": \"Extract last name of person designated for follow-up. Default: same as requestor's last name.\"\n    },\n    \"contact_phone_number\": {\n      \"type\": \"string\",\n      \"description\": \"Extract final confirmed callback phone number in E.164 format (+1XXXXXXXXXX). If user corrected a number, use correction only. Convert number words to digits. Return null if count < 10 digits or no number found.\"\n    },\n    \"contact_preferred_followup_channel\": {\n      \"type\": \"string\",\n      \"description\": \"Valid values: phone, sms, email. Detection triggers: 'call me', 'text me', 'send me an email'. Default to 'phone' when unclear.\"\n    },\n    \"contact_preferred_followup_time\": {\n      \"type\": \"string\",\n      \"description\": \"Extract follow-up timing preferences. Examples: 'tomorrow afternoon', 'after 6 PM only', 'weekdays before noon'. Return null when none mentioned.\"\n    },\n    \"requested_service_address\": {\n      \"type\": \"string\",\n      \"description\": \"Extract physical location WHERE WORK HAPPENS (dispatch destination). NOT the branch being contacted. Return null if no dispatch required or requestor coming to company location.\"\n    },\n    \"requestor_is_contact\": {\n      \"type\": \"boolean\",\n      \"description\": \"Is requestor the designated contact for follow-up? Default: TRUE. Set FALSE only when requestor makes explicit statement designating alternate contact.\"\n    }\n  },\n  \"request\": {\n    \"existing_request\": {\n      \"type\": \"boolean\",\n      \"description\": \"Is this regarding an existing request/ticket? Detection: reference to case/ticket numbers, 'following up on', 'checking status of'. Default FALSE when unclear.\"\n    },\n    \"request_affected_asset\": {\n      \"type\": \"string\",\n      \"description\": \"Extract specific equipment, device, software, or system involved. Include model numbers, asset IDs if stated. Return null when no specific asset mentioned.\"\n    },\n    \"request_deadline\": {\n      \"type\": \"string\",\n      \"description\": \"Extract requestor-specified date or timeframe. Examples: 'need this fixed by Friday', 'within 48 hours'. Return null when none mentioned.\"\n    },\n    \"request_description\": {\n      \"type\": \"string\",\n      \"description\": \"Generate single factual paragraph (80-120 words) using ONLY explicitly stated information. Inverted-pyramid format. Plain language, active voice. No future commitments.\"\n    },\n    \"request_summary\": {\n      \"type\": \"string\",\n      \"description\": \"Generate precise ticket title (<80 chars). Format: '[Equipment/Issue] - [Location]'. Avoid generic terms like 'issue', 'problem'. Include equipment ID if provided.\"\n    }\n  },\n  \"routing\": {\n    \"conversation_transfer_destination\": {\n      \"type\": \"string\",\n      \"description\": \"If transferred, capture destination label. Examples: 'Main operator', 'Billing department'. Return null if no transfer.\"\n    },\n    \"conversation_transfer_reason\": {\n      \"type\": \"string\",\n      \"description\": \"Short summary (â‰¤120 chars) explaining WHY transferred. Return null if no transfer.\"\n    },\n    \"conversation_transferred\": {\n      \"type\": \"boolean\",\n      \"description\": \"Was conversation transferred to live person? Set TRUE only when actual transfer mechanism invoked. Default FALSE.\"\n    },\n    \"requestor_requested_specific_person\": {\n      \"type\": \"string\",\n      \"description\": \"Name of specific person requestor asks to speak with. Return null if no specific person requested by name.\"\n    },\n    \"routing_department\": {\n      \"type\": \"string\",\n      \"description\": \"EXACTLY one from: Service, Field Service, Sales, Marketing, Purchasing, Fulfillment, Shipping, Billing, Finance, Accounting, HR, Payroll, IT, IT Support, Operations, Contracts, Administration, General. Default 'General' when unclear.\"\n    },\n    \"routing_site_location\": {\n      \"type\": \"string\",\n      \"description\": \"Site or branch location for internal routing. Return null if none mentioned.\"\n    },\n    \"routing_urgency\": {\n      \"type\": \"string\",\n      \"description\": \"Valid values: emergency (safety/critical), soon (needs quick attention), routine (standard), estimate (quote only). Default 'routine' when unclear.\"\n    }\n  }\n};\n\n// Allow override from webhook body\nconst fieldInstructions = webhookBody.extraction_instructions || extractionInstructions;\n\n// ============================================================================\n// COMPONENT E: AGENT CONFIGURATION SPECIFICATION (full agent config)\n// ============================================================================\nconst agentConfig = {\n  agent_id: agent.agent_id,\n  name: agent.name,\n  conversation_config: agent.conversation_config,\n  platform_settings: agent.platform_settings,\n  metadata: agent.metadata\n};\n\n// ============================================================================\n// ASSEMBLE THE 5-COMPONENT BULK PROMPT\n// ============================================================================\nconst bulkPrompt = `You are a precision data extraction system. Your task is to extract structured fields from a voice call transcript.\n\n================================================================================\nCOMPONENT A: CONVERSATION TRANSCRIPT (RAW)\n================================================================================\n${transcriptRaw}\n\n================================================================================\nCOMPONENT B: AGENT SYSTEM PROMPT (Context for understanding agent behavior)\n================================================================================\n${agentSystemPrompt}\n\n================================================================================\nCOMPONENT C: RESPONSE SCHEMA (Required output structure)\n================================================================================\n${JSON.stringify(responseSchema, null, 2)}\n\n================================================================================\nCOMPONENT D: EXTRACTION INSTRUCTIONS (Field-level micro-prompts)\n================================================================================\n${JSON.stringify(fieldInstructions, null, 2)}\n\n================================================================================\nCOMPONENT E: AGENT CONFIGURATION (Full agent specification)\n================================================================================\n${JSON.stringify(agentConfig, null, 2)}\n\n================================================================================\nEXTRACTION TASK\n================================================================================\nUsing the transcript (A), agent context (B, E), and the detailed extraction instructions (D), extract all fields defined in the schema (C).\n\nRULES:\n1. Use null for any field that cannot be determined from the transcript\n2. Follow the exact type specifications (string, boolean)\n3. Apply the micro-prompt instructions in Component D precisely\n4. Return ONLY valid JSON matching the schema structure\n5. Do not add explanations or commentary - return pure JSON\n\nOUTPUT: Return the extracted data as a JSON object with the exact structure from Component C.`;\n\n// Build Gemini request body\nconst geminiBody = JSON.stringify({\n  contents: [{ parts: [{ text: bulkPrompt }] }],\n  generationConfig: { \n    temperature: 0.1, \n    responseMimeType: 'application/json' \n  }\n});\n\nreturn {\n  json: {\n    error: false,\n    bulkPrompt: bulkPrompt,\n    geminiBody: geminiBody,\n    conversationId: conv.conversation_id,\n    agentId: conv.agent_id,\n    agentName: agent.name,\n    transcriptLength: transcriptRaw.length,\n    schemaFieldCount: Object.keys(fieldInstructions).reduce((acc, section) => acc + Object.keys(fieldInstructions[section]).length, 0),\n    components: {\n      A_transcript: true,\n      B_agentPrompt: true,\n      C_responseSchema: true,\n      D_extractionInstructions: true,\n      E_agentConfig: true\n    }\n  }\n};"
+      }
+    },
+    {
+      "id": "9",
+      "name": "Check Transcript Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "transcript-error-check",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "10",
+      "name": "Empty Transcript Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ { success: false, error: $json.errorCode, message: $json.errorMessage, conversation_id: $json.conversationId, agent_id: $json.agentId, timestamp: new Date().toISOString() } }}"
+      }
+    },
+    {
+      "id": "4",
+      "name": "Call Gemini 3 Pro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=<REDACTED:google-api-key>",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "id": "5",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        500
+      ],
+      "parameters": {
+        "jsCode": "const prev = $('Assemble 5-Component Bulk Prompt').item.json;\nconst response = $json;\nlet extracted = {};\n\ntry {\n  const text = response.candidates[0].content.parts[0].text;\n  extracted = JSON.parse(text);\n} catch(e) {\n  extracted = { error: 'Parse failed', raw: response };\n}\n\nreturn {\n  json: {\n    success: true,\n    conversation_id: prev.conversationId,\n    agent_id: prev.agentId,\n    agent_name: prev.agentName,\n    extracted_fields: extracted,\n    model: 'gemini-3-pro',\n    architecture: '5-component-bulk-prompt',\n    components_used: prev.components,\n    schema_field_count: prev.schemaFieldCount,\n    transcript_chars: prev.transcriptLength,\n    timestamp: new Date().toISOString()\n  }\n};"
+      }
+    },
+    {
+      "id": "6",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1540,
+        500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch ElevenLabs Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch ElevenLabs Data": {
+      "main": [
+        [
+          {
+            "node": "Check for Errors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Errors": {
+      "main": [
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Assemble 5-Component Bulk Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble 5-Component Bulk Prompt": {
+      "main": [
+        [
+          {
+            "node": "Check Transcript Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Transcript Error": {
+      "main": [
+        [
+          {
+            "node": "Empty Transcript Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Gemini 3 Pro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini 3 Pro": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "tags": [
+    "DEV"
+  ]
+}

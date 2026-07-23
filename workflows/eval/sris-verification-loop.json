@@ -1,0 +1,332 @@
+{
+  "name": "[DEV] eval / sris-verification-loop",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Verification Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "path": "sris-verification-loop",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "parse-input",
+      "name": "Parse Verification Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const input = $input.first().json.body || $input.first().json || {};\n\nconst verification = {\n  verification_id: `verify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n  target_type: input.target_type || 'elevenlabs',\n  agent_id: input.agent_id || null,\n  workflow_id: input.workflow_id || null,\n  fix_applied: input.fix_applied || {},\n  metrics_before: input.metrics_before || {},\n  cooldown_ms: input.cooldown_ms || 30000,\n  max_retries: input.max_retries || 1,\n  current_retry: 0,\n  started_at: new Date().toISOString()\n};\n\nreturn [{ json: verification }];"
+      }
+    },
+    {
+      "id": "wait-cooldown",
+      "name": "Wait Cooldown",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "amount": "={{ Math.floor($json.cooldown_ms / 1000) }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "re-evaluate",
+      "name": "Re-Evaluate Target",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Parse Verification Request').item.json.target_type === 'elevenlabs' ? 'https://n8n.wranngle.com/webhook/elevenlabs-conversation-eval' : 'https://n8n.wranngle.com/webhook/parallel-eval-runner-v6' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $('Parse Verification Request').item.json.target_type === 'elevenlabs' ? JSON.stringify({ agent_id: $('Parse Verification Request').item.json.agent_id }) : JSON.stringify({ limit: 50 }) }}",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      }
+    },
+    {
+      "id": "compare-metrics",
+      "name": "Compare Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const verificationReq = $('Parse Verification Request').item.json;\nconst newResults = $input.first().json;\n\nconst metricsBefore = verificationReq.metrics_before;\nlet metricsAfter = {};\nlet outcome = 'unchanged';\n\nif (verificationReq.target_type === 'elevenlabs') {\n  const evalData = newResults.evaluation || newResults;\n  metricsAfter = {\n    pass_rate: parseFloat(evalData.summary?.pass_rate || '0'),\n    tool_accuracy: parseFloat(evalData.summary?.avg_tool_accuracy || '0'),\n    criteria_score: parseFloat(evalData.summary?.avg_criteria_score || '0'),\n    failed: evalData.summary?.failed || 0\n  };\n  \n  const beforePassRate = metricsBefore.pass_rate || 0;\n  const afterPassRate = metricsAfter.pass_rate;\n  \n  if (afterPassRate > beforePassRate + 5) {\n    outcome = 'improved';\n  } else if (afterPassRate < beforePassRate - 5) {\n    outcome = 'degraded';\n  }\n} else {\n  metricsAfter = {\n    pass_rate: parseFloat(newResults.summary?.pass_rate || '0'),\n    avg_latency_ms: newResults.summary?.avg_latency_ms || 0,\n    failed: newResults.summary?.failed || 0\n  };\n  \n  const beforePassRate = metricsBefore.pass_rate || 0;\n  const afterPassRate = metricsAfter.pass_rate;\n  \n  if (afterPassRate > beforePassRate + 5) {\n    outcome = 'improved';\n  } else if (afterPassRate < beforePassRate - 5) {\n    outcome = 'degraded';\n  }\n}\n\nconst result = {\n  verification_id: verificationReq.verification_id,\n  target_type: verificationReq.target_type,\n  agent_id: verificationReq.agent_id,\n  workflow_id: verificationReq.workflow_id,\n  fix_applied: verificationReq.fix_applied,\n  metrics_before: metricsBefore,\n  metrics_after: metricsAfter,\n  outcome: outcome,\n  improvement_delta: metricsAfter.pass_rate - (metricsBefore.pass_rate || 0),\n  completed_at: new Date().toISOString()\n};\n\nreturn [{ json: result }];"
+      }
+    },
+    {
+      "id": "check-outcome",
+      "name": "Check Outcome",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "outputKey": "improved",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "improved"
+                  }
+                ]
+              },
+              "renameOutput": true
+            },
+            {
+              "outputKey": "degraded",
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "leftValue": "={{ $json.outcome }}",
+                    "rightValue": "degraded"
+                  }
+                ]
+              },
+              "renameOutput": true
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const result = $input.first().json;\n\nconsole.log(`[SRIS] Verification SUCCESS: ${result.verification_id}`);\nconsole.log(`[SRIS] Outcome: ${result.outcome}, Delta: +${result.improvement_delta.toFixed(1)}%`);\n\nreturn [{ json: { ...result, action: 'logged', notification: 'success_slack_pending' } }];"
+      }
+    },
+    {
+      "id": "rollback-fix",
+      "name": "Rollback Fix (TODO)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const result = $input.first().json;\n\nconsole.log(`[SRIS] Verification FAILED - ROLLBACK NEEDED: ${result.verification_id}`);\nconsole.log(`[SRIS] Outcome: ${result.outcome}, Delta: ${result.improvement_delta.toFixed(1)}%`);\n\nreturn [{ json: { ...result, action: 'rollback_queued', notification: 'alert_slack_pending', rollback_instructions: 'Manual rollback required - restore previous prompt version' } }];"
+      }
+    },
+    {
+      "id": "log-unchanged",
+      "name": "Log Unchanged",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        500
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const result = $input.first().json;\n\nconsole.log(`[SRIS] Verification UNCHANGED: ${result.verification_id}`);\nconsole.log(`[SRIS] No significant change detected. Queuing for manual review.`);\n\nreturn [{ json: { ...result, action: 'manual_review', notification: 'review_slack_pending' } }];"
+      }
+    },
+    {
+      "id": "respond-result",
+      "name": "Respond Result",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      }
+    }
+  ],
+  "connections": {
+    "Verification Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Verification Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Verification Request": {
+      "main": [
+        [
+          {
+            "node": "Wait Cooldown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Cooldown": {
+      "main": [
+        [
+          {
+            "node": "Re-Evaluate Target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Re-Evaluate Target": {
+      "main": [
+        [
+          {
+            "node": "Compare Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Metrics": {
+      "main": [
+        [
+          {
+            "node": "Check Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Outcome": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rollback Fix (TODO)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Unchanged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Respond Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rollback Fix (TODO)": {
+      "main": [
+        [
+          {
+            "node": "Respond Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Unchanged": {
+      "main": [
+        [
+          {
+            "node": "Respond Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "tags": [
+    "DEV"
+  ]
+}

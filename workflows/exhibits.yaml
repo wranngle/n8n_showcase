@@ -1,0 +1,104 @@
+# Exhibit manifest — which live workflows this repo showcases.
+#
+# Each entry maps a workflow on the live instance (by immutable id) to a
+# checked-in sanitized export. scripts/export-live-workflows.js produces the
+# files; bin/drift.js re-fetches each id, re-sanitizes, and fails if the
+# checked-in file no longer matches the instance.
+#
+# Chapters follow the life of one phone call (see README).
+
+exhibits:
+  - id: SY5XCbzxX32eCIeO
+    file: workflows/lead-intake/form-receiver.json
+    chapter: 1-lead-lands
+    title: Lead intake form receiver
+
+  - id: qQmGqBM1pe4QUI05
+    file: workflows/sarah/pipedrive-lead-auto-caller.json
+    chapter: 2-sarah-dials
+    title: Pipedrive lead auto-caller
+
+  - id: 5eowJIoZFZOSG85m
+    file: workflows/sarah/outbound-caller-with-client-data.json
+    chapter: 2-sarah-dials
+    title: Outbound caller with client data
+
+  - id: NcP4oEeS3xolYXzC
+    file: workflows/sarah/outbound-caller-bulletproof.json
+    chapter: 2-sarah-dials
+    title: Outbound caller, bulletproof variant
+
+  - id: Rry9i9JdDulTrCci
+    file: workflows/sarah/email-tool.json
+    chapter: 2-sarah-dials
+    title: Sarah email tool
+
+  - id: BozTmxhIv5lepNyK
+    file: workflows/elevenlabs/post-call-webhook.json
+    chapter: 3-call-ends
+    title: ElevenLabs post-call webhook (HMAC-verified)
+
+  - id: FGjUvywqh09XKlYJ
+    file: workflows/elevenlabs/webhook-listener.json
+    chapter: 3-call-ends
+    title: ElevenLabs webhook listener
+
+  - id: 54sXqqJVSctlSF6V
+    file: workflows/post-call/transcript-field-extractor.json
+    chapter: 3-call-ends
+    title: Transcript field extractor
+
+  - id: 2Z4wykQk0x1Y67Sr
+    file: workflows/post-call/llm-extraction-engine.json
+    chapter: 3-call-ends
+    title: LLM extraction engine
+
+  - id: cEORduJCqCVDOKce
+    file: workflows/post-call/pipedrive-updater.json
+    chapter: 3-call-ends
+    title: Pipedrive updater
+
+  - id: 6jT5kplal5Pn3Ez0
+    file: workflows/post-call/self-healing.json
+    chapter: 4-failures-dont-vanish
+    title: Self-healing reprocessor
+
+  - id: LpWW36WkDAOTpGYC
+    file: workflows/post-call/dlq-reprocess.json
+    chapter: 4-failures-dont-vanish
+    title: Dead-letter queue reprocessor
+
+  - id: 4TqaQ6kORDzZVwVP
+    file: workflows/eval/sris-master-orchestrator.json
+    chapter: 5-system-grades-itself
+    title: SRIS master orchestrator
+
+  - id: KoQChBtjUa5F9bZg
+    file: workflows/eval/sris-verification-loop.json
+    chapter: 5-system-grades-itself
+    title: SRIS verification loop
+
+  - id: KrqpJuyN8pjTouAo
+    file: workflows/eval/voice-agent-tester.json
+    chapter: 5-system-grades-itself
+    title: Voice agent tester
+
+  - id: DGBMdZP4JehVfZxO
+    file: workflows/eval/testing-framework-data-table-api.json
+    chapter: 5-system-grades-itself
+    title: Testing framework over Data Table API
+
+  - id: 81W6PAGZfSi81ZQ9
+    file: workflows/cicd/elevenlabs-cicd.json
+    chapter: 6-revisions-ship-through-a-pipeline
+    title: ElevenLabs agent-config CI/CD
+
+  - id: uFFwYcr7XgdRCvdW
+    file: workflows/sms/sarah-tool.json
+    chapter: 7-conversation-continues
+    title: Sarah SMS tool
+
+  - id: CBoXlSNiDOHA5YmA
+    file: workflows/sms/universal-message-sender.json
+    chapter: 7-conversation-continues
+    title: Universal message sender

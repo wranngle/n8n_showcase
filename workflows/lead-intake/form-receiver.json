@@ -1,0 +1,507 @@
+{
+  "name": "[PROD] lead-intake / form-receiver",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "id": "webhook-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "path": "wranngle-intake-form",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "{ \"success\": true, \"message\": \"Lead received\" }",
+        "options": {},
+        "authentication": "headerAuth"
+      }
+    },
+    {
+      "id": "set-1",
+      "name": "Format Lead Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $now.format(\"yyyy-MM-dd HH:mm:ss\") }} UTC",
+              "type": "string"
+            },
+            {
+              "id": "businessName",
+              "name": "businessName",
+              "value": "={{ $json.businessName }}",
+              "type": "string"
+            },
+            {
+              "id": "industry",
+              "name": "industry",
+              "value": "={{ $json.industry }}",
+              "type": "string"
+            },
+            {
+              "id": "ownerName",
+              "name": "ownerName",
+              "value": "={{ $json.ownerName }}",
+              "type": "string"
+            },
+            {
+              "id": "phone",
+              "name": "phone",
+              "value": "={{ $json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "value": "={{ $json.email }}",
+              "type": "string"
+            },
+            {
+              "id": "package",
+              "name": "package",
+              "value": "={{ $json.package }}",
+              "type": "string"
+            },
+            {
+              "id": "agentName",
+              "name": "agentName",
+              "value": "={{ $json.agentName || \"Not specified\" }}",
+              "type": "string"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.status || \"PENDING\" }}",
+              "type": "string"
+            },
+            {
+              "id": "notes",
+              "name": "notes",
+              "value": "={{ $json.notes || \"None provided\" }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "email-1",
+      "name": "Send Email Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1050,
+        250
+      ],
+      "parameters": {
+        "fromEmail": "noreply@wranngle.com",
+        "toEmail": "sales@wranngle.com",
+        "subject": "=New Lead: {{ $json.body.businessName }}",
+        "emailFormat": "html",
+        "html": "=<!DOCTYPE html>\r\n<html lang=\"en\" xmlns:v=\"urn:schemas-microsoft-com:vml\" xmlns:o=\"urn:schemas-microsoft-com:office:office\">\r\n<head>\r\n  <meta charset=\"utf-8\">\r\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\r\n  <meta name=\"x-apple-disable-message-reformatting\">\r\n  <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">\r\n  <meta name=\"format-detection\" content=\"telephone=no,address=no,email=no,date=no\">\r\n  <meta name=\"color-scheme\" content=\"light dark\">\r\n  <meta name=\"supported-color-schemes\" content=\"light dark\">\r\n\r\n  <title>New Lead: {{ $json.body.businessName }}</title>\r\n\r\n  <!--[if mso]>\r\n  <noscript>\r\n    <xml>\r\n      <o:OfficeDocumentSettings>\r\n        <o:PixelsPerInch>96</o:PixelsPerInch>\r\n      </o:OfficeDocumentSettings>\r\n    </xml>\r\n  </noscript>\r\n  <![endif]-->\r\n\r\n  <style>\r\n    /* RESET STYLES */\r\n    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }\r\n    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }\r\n    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }\r\n    body { margin: 0; padding: 0; width: 100%; height: 100%; }\r\n\r\n    /* CLIENT-SPECIFIC STYLES */\r\n    #outlook a { padding: 0; }\r\n    .ReadMsgBody, .ExternalClass { width: 100%; }\r\n    .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }\r\n\r\n    /* ============================================\r\n       WRANNGLE DESIGN SYSTEM TOKENS\r\n       ============================================ */\r\n\r\n    /* COLOR TOKENS */\r\n    :root {\r\n      /* Primary Palette */\r\n      --wranngle-primary: #ff5f00;      /* Orange - CTAs, left borders, console labels */\r\n      --wranngle-secondary: #cf3c69;    /* Magenta - security/premium contexts ONLY */\r\n      --wranngle-dark: #12111a;         /* Near-black - text, dark backgrounds */\r\n      --wranngle-light: #fcfaf5;        /* Off-white - light mode backgrounds */\r\n\r\n      /* Semantic Colors */\r\n      --wranngle-success: #10b981;      /* Green - completed states ONLY */\r\n      --wranngle-warning: #f59e0b;      /* Amber - warnings, action required */\r\n      --wranngle-danger: #ef4444;       /* Red - errors, security alerts */\r\n\r\n      /* Neutral Colors */\r\n      --wranngle-gray-600: #6b7280;     /* Body secondary text */\r\n      --wranngle-gray-400: #9ca3af;     /* Footer text */\r\n      --wranngle-gray-300: #d1d5db;     /* Dividers */\r\n      --wranngle-border: #e5e7eb;       /* Light borders */\r\n      --wranngle-bg-subtle: #f9fafb;    /* Subtle backgrounds */\r\n      --wranngle-bg-page: #f3f4f6;      /* Page background */\r\n\r\n      /* Spacing Scale (8px base) */\r\n      --space-xs: 4px;\r\n      --space-sm: 8px;\r\n      --space-md: 12px;\r\n      --space-base: 16px;\r\n      --space-lg: 20px;\r\n      --space-xl: 24px;\r\n      --space-2xl: 32px;\r\n      --space-3xl: 40px;\r\n\r\n      /* Typography Scale */\r\n      --text-xs: 11px;    /* Footer legal */\r\n      --text-sm: 12px;    /* Console labels */\r\n      --text-base: 14px;  /* Buttons, small body */\r\n      --text-lg: 16px;    /* Body - primary */\r\n      --text-xl: 18px;    /* H2 */\r\n      --text-2xl: 24px;   /* H1 standard */\r\n      --text-3xl: 28px;   /* H1 receipt */\r\n      --text-4xl: 32px;   /* H1 hero */\r\n\r\n      /* Border Radius */\r\n      --radius-sm: 4px;   /* Info boxes, small elements */\r\n      --radius-md: 8px;   /* Heroes, cards, buttons */\r\n    }\r\n\r\n    /* DARK MODE SUPPORT */\r\n    @media (prefers-color-scheme: dark) {\r\n      .dark-mode-bg { background-color: #12111a !important; }\r\n      .dark-mode-text { color: #fcfaf5 !important; }\r\n      .dark-mode-border { border-color: rgba(255, 255, 255, 0.1) !important; }\r\n    }\r\n\r\n    /* RESPONSIVE STYLES */\r\n    @media only screen and (max-width: 600px) {\r\n      .container { width: 100% !important; max-width: 100% !important; }\r\n      .mobile-padding { padding-left: 16px !important; padding-right: 16px !important; }\r\n      .mobile-full-width { width: 100% !important; display: block !important; }\r\n      .mobile-hide { display: none !important; }\r\n      .mobile-text-center { text-align: center !important; }\r\n      .mobile-font-size-16 { font-size: 16px !important; }\r\n      .mobile-font-size-14 { font-size: 14px !important; }\r\n    }\r\n\r\n    /* FONT IMPORTS - Web-safe fallbacks for maximum compatibility */\r\n    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');\r\n\r\n    /* BASE TYPOGRAPHY */\r\n    body, .body-text {\r\n      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;\r\n      font-size: 16px;\r\n      line-height: 1.6;\r\n      color: #12111a;\r\n    }\r\n\r\n    .brand-font {\r\n      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;\r\n      font-weight: 700;\r\n    }\r\n\r\n    .mono-font {\r\n      font-family: 'Courier New', Courier, monospace;\r\n      font-size: 14px;\r\n    }\r\n\r\n    /* UTILITY CLASSES */\r\n    .no-decoration { text-decoration: none !important; }\r\n    .bold { font-weight: 700 !important; }\r\n    .text-center { text-align: center !important; }\r\n    .text-left { text-align: left !important; }\r\n    .text-right { text-align: right !important; }\r\n\r\n    /* BUTTON STYLES */\r\n    .btn-primary {\r\n      background-color: #ff5f00 !important;\r\n      border: 2px solid #ff5f00 !important;\r\n      border-radius: 8px !important;\r\n      color: #ffffff !important;\r\n      display: inline-block !important;\r\n      font-family: 'Inter', Arial, sans-serif !important;\r\n      font-size: 14px !important;\r\n      font-weight: 700 !important;\r\n      letter-spacing: 0.5px !important;\r\n      line-height: 1.4 !important;\r\n      padding: 14px 32px !important;\r\n      text-align: center !important;\r\n      text-decoration: none !important;\r\n      text-transform: uppercase !important;\r\n      -webkit-text-size-adjust: none !important;\r\n    }\r\n\r\n    .btn-secondary {\r\n      background-color: transparent !important;\r\n      border: 2px solid #12111a !important;\r\n      border-radius: 8px !important;\r\n      color: #12111a !important;\r\n      display: inline-block !important;\r\n      font-family: 'Inter', Arial, sans-serif !important;\r\n      font-size: 14px !important;\r\n      font-weight: 700 !important;\r\n      letter-spacing: 0.5px !important;\r\n      line-height: 1.4 !important;\r\n      padding: 14px 32px !important;\r\n      text-align: center !important;\r\n      text-decoration: none !important;\r\n      text-transform: uppercase !important;\r\n      -webkit-text-size-adjust: none !important;\r\n    }\r\n\r\n    .btn-warning {\r\n      background-color: #f59e0b !important;\r\n      border: 2px solid #f59e0b !important;\r\n      border-radius: 8px !important;\r\n      color: #ffffff !important;\r\n      display: inline-block !important;\r\n      font-family: 'Inter', Arial, sans-serif !important;\r\n      font-size: 14px !important;\r\n      font-weight: 700 !important;\r\n      letter-spacing: 0.5px !important;\r\n      line-height: 1.4 !important;\r\n      padding: 14px 32px !important;\r\n      text-align: center !important;\r\n      text-decoration: none !important;\r\n      text-transform: uppercase !important;\r\n      -webkit-text-size-adjust: none !important;\r\n    }\r\n\r\n    .btn-danger {\r\n      background-color: #ef4444 !important;\r\n      border: 2px solid #ef4444 !important;\r\n      border-radius: 8px !important;\r\n      color: #ffffff !important;\r\n      display: inline-block !important;\r\n      font-family: 'Inter', Arial, sans-serif !important;\r\n      font-size: 14px !important;\r\n      font-weight: 700 !important;\r\n      letter-spacing: 0.5px !important;\r\n      line-height: 1.4 !important;\r\n      padding: 14px 32px !important;\r\n      text-align: center !important;\r\n      text-decoration: none !important;\r\n      text-transform: uppercase !important;\r\n      -webkit-text-size-adjust: none !important;\r\n    }\r\n\r\n    /* WRANNGLE ACCENT BORDER */\r\n    .wranngle-border-left {\r\n      border-left: 4px solid #ff5f00 !important;\r\n    }\r\n\r\n    /* NOISE TEXTURE - Use background pattern for console aesthetic */\r\n    .noise-bg {\r\n      background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZmlsdGVyIGlkPSJub2lzZSI+PGZlVHVyYnVsZW5jZSB0eXBlPSJmcmFjdGFsTm9pc2UiIGJhc2VGcmVxdWVuY3k9IjAuNyIgbnVtT2N0YXZlcz0iNCIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNub2lzZSkiIG9wYWNpdHk9IjAuMDUiLz48L3N2Zz4=');\r\n    }\r\n  </style>\r\n</head>\r\n\r\n<body style=\"margin: 0; padding: 0; width: 100%; background-color: #f3f4f6;\">\r\n\r\n  <!-- PREHEADER TEXT - Hidden but appears in inbox preview -->\r\n  <div style=\"display: none; max-height: 0; overflow: hidden; mso-hide: all;\">\r\n    New lead from {{ $json.body.businessName }} - {{ $json.body.industry }}\r\n  </div>\r\n\r\n  <!-- EMAIL WRAPPER - Ensures proper rendering -->\r\n  <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"background-color: #f3f4f6; padding: 20px 0;\">\r\n    <tr>\r\n      <td align=\"center\" valign=\"top\">\r\n\r\n        <!-- MAIN CONTAINER - 600px max width -->\r\n        <table role=\"presentation\" class=\"container\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"600\" style=\"max-width: 600px; width: 100%; background-color: #ffffff; margin: 0 auto;\">\r\n\r\n          <!-- HEADER SECTION -->\r\n          <tr>\r\n            <td align=\"center\" style=\"padding: 32px 24px; background-color: #12111a;\">\r\n              <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\r\n                <tr>\r\n                  <td align=\"center\">\r\n                    <!-- WRANNGLE LOGO -->\r\n                    <a href=\"https://wranngle.com\" style=\"text-decoration: none;\">\r\n                      <img src=\"https://i.ibb.co/WWFmbjKJ/wranngle-wordmark-4096w.png\" alt=\"Wranngle\" width=\"180\" height=\"auto\" style=\"display: block; max-width: 180px; height: auto; border: 0;\" />\r\n                    </a>\r\n                  </td>\r\n                </tr>\r\n              </table>\r\n            </td>\r\n          </tr>\r\n\r\n          <!-- CONTENT SECTION -->\r\n          <tr>\r\n            <td style=\"padding: 0;\">\r\n\r\n              <!-- LEFT ACCENT BORDER WRAPPER -->\r\n              <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\r\n                <tr>\r\n                  <td class=\"wranngle-border-left\" style=\"padding: 40px 24px; border-left: 4px solid #ff5f00;\">\r\n\r\n                    <!-- LEAD INTAKE NOTIFICATION - Uses master-template.html -->\n<!-- Sent to sales@wranngle.com when a new lead submits the intake form -->\n\n<!-- NOTIFICATION HERO -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 32px;\">\n  <tr>\n    <td align=\"center\" style=\"padding: 24px; background: linear-gradient(135deg, #12111a 0%, #2d0914 100%); border-radius: 8px;\">\n      <h1 style=\"margin: 0 0 12px 0; font-family: 'Inter', Arial, sans-serif; font-size: 28px; font-weight: 700; color: #ffffff; line-height: 1.2;\">\n        New Lead Received\n      </h1>\n      <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 14px; color: #ff5f00; letter-spacing: 1px;\">\n        [ INTAKE FORM SUBMISSION ]\n      </p>\n    </td>\n  </tr>\n</table>\n\n<!-- BUSINESS INFO SECTION -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td>\n      <h2 style=\"margin: 0 0 16px 0; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 700; color: #12111a; text-transform: uppercase; letter-spacing: 0.5px;\">\n        Business Information\n      </h2>\n    </td>\n  </tr>\n</table>\n\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td style=\"padding: 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #ff5f00; border-radius: 4px;\">\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\n        <tr>\n          <td style=\"padding-bottom: 12px;\">\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Business Name</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 700; color: #12111a;\">{{ $json.body.businessName }}</p>\n          </td>\n        </tr>\n        <tr>\n          <td style=\"padding-bottom: 12px;\">\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Industry / Trade</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 16px; color: #12111a;\">{{ $json.body.industry }}</p>\n          </td>\n        </tr>\n        <tr>\n          <td>\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Owner / Contact</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 16px; color: #12111a;\">{{ $json.body.ownerName }}</p>\n          </td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>\n\n<!-- CONTACT DETAILS SECTION -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td>\n      <h2 style=\"margin: 0 0 16px 0; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 700; color: #12111a; text-transform: uppercase; letter-spacing: 0.5px;\">\n        Contact Details\n      </h2>\n    </td>\n  </tr>\n</table>\n\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td style=\"padding: 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #ff5f00; border-radius: 4px;\">\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\n        <tr>\n          <td style=\"padding-bottom: 16px;\">\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Email Address</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 16px;\">\n              <a href=\"mailto:{{ $json.body.email }}\" style=\"color: #ff5f00; text-decoration: none; font-weight: 600;\">{{ $json.body.email }}</a>\n            </p>\n          </td>\n        </tr>\n        <tr>\n          <td>\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Phone Number</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 16px;\">\n              <a href=\"tel:{{ $json.body.phone }}\" style=\"color: #ff5f00; text-decoration: none; font-weight: 600;\">{{ $json.body.phone }}</a>\n            </p>\n          </td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>\n\n<!-- PACKAGE & AGENT SECTION -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td>\n      <h2 style=\"margin: 0 0 16px 0; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 700; color: #12111a; text-transform: uppercase; letter-spacing: 0.5px;\">\n        Package Selection\n      </h2>\n    </td>\n  </tr>\n</table>\n\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td style=\"padding: 20px; background-color: #fff7ed; border: 1px solid #fed7aa; border-left: 4px solid #ff5f00; border-radius: 4px;\">\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\n        <tr>\n          <td style=\"padding-bottom: 12px;\">\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Package</p>\n            <p style=\"margin: 8px 0 0 0;\">\n              <span style=\"display: inline-block; background-color: #ff5f00; color: #ffffff; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 700; padding: 6px 16px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;\">{{ $json.body.package }}</span>\n            </p>\n          </td>\n        </tr>\n        <tr>\n          <td>\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;\">Agent Name (if specified)</p>\n            <p style=\"margin: 4px 0 0 0; font-family: 'Inter', Arial, sans-serif; font-size: 16px; color: #12111a;\">{{ $json.body.agentName || \"Not specified\" }}</p>\n          </td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>\n\n<!-- NOTES SECTION (conditional display handled by n8n) -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td>\n      <h2 style=\"margin: 0 0 16px 0; font-family: 'Inter', Arial, sans-serif; font-size: 18px; font-weight: 700; color: #12111a; text-transform: uppercase; letter-spacing: 0.5px;\">\n        Additional Notes\n      </h2>\n    </td>\n  </tr>\n</table>\n\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 32px;\">\n  <tr>\n    <td style=\"padding: 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-left: 4px solid #ff5f00; border-radius: 4px;\">\n      <p style=\"margin: 0; font-family: 'Inter', Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #374151; white-space: pre-wrap;\">{{ $json.body.notes || \"None provided\" }}</p>\n    </td>\n  </tr>\n</table>\n\n<!-- TIMESTAMP & STATUS -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 32px;\">\n  <tr>\n    <td style=\"padding: 16px; background-color: #12111a; border-radius: 4px;\">\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\n        <tr>\n          <td>\n            <p style=\"margin: 0 0 4px 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #9ca3af;\">\n              <span style=\"color: #10b981;\">STATUS:</span> {{ $json.body.status || \"PENDING\" }}\n            </p>\n            <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; color: #9ca3af;\">\n              <span style=\"color: #ff5f00;\">RECEIVED:</span> {{ $now.format(\"yyyy-MM-dd HH:mm:ss\") }} UTC\n            </p>\n          </td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>\n\n<!-- ACTION BUTTONS -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\" style=\"margin-bottom: 24px;\">\n  <tr>\n    <td align=\"center\">\n      <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">\n        <tr>\n          <td style=\"padding-right: 12px;\">\n            <a href=\"mailto:{{ $json.body.email }}\" class=\"btn-primary\" style=\"background-color: #ff5f00; border: 2px solid #ff5f00; border-radius: 8px; color: #ffffff; display: inline-block; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.4; padding: 12px 24px; text-align: center; text-decoration: none; text-transform: uppercase;\">\n              Reply to Lead\n            </a>\n          </td>\n          <td>\n            <a href=\"tel:{{ $json.body.phone }}\" class=\"btn-secondary\" style=\"background-color: transparent; border: 2px solid #12111a; border-radius: 8px; color: #12111a; display: inline-block; font-family: 'Inter', Arial, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.4; padding: 12px 24px; text-align: center; text-decoration: none; text-transform: uppercase;\">\n              Call Lead\n            </a>\n          </td>\n        </tr>\n      </table>\n    </td>\n  </tr>\n</table>\n\n<!-- INTERNAL NOTE -->\n<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\n  <tr>\n    <td style=\"padding: 16px; background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 4px; text-align: center;\">\n      <p style=\"margin: 0; font-family: 'Inter', Arial, sans-serif; font-size: 13px; line-height: 1.5; color: #92400e;\">\n        <strong>Internal:</strong> This lead was captured via the website intake form. Follow up within 24 hours.\n      </p>\n    </td>\n  </tr>\n</table>\n\r\n\r\n                  </td>\r\n                </tr>\r\n              </table>\r\n\r\n            </td>\r\n          </tr>\r\n\r\n          <!-- DIVIDER -->\r\n          <tr>\r\n            <td style=\"padding: 0 24px;\">\r\n              <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\r\n                <tr>\r\n                  <td style=\"border-top: 1px solid #e5e7eb; padding: 0;\"></td>\r\n                </tr>\r\n              </table>\r\n            </td>\r\n          </tr>\r\n\r\n          <!-- FOOTER SECTION -->\r\n          <tr>\r\n            <td style=\"padding: 32px 24px; background-color: #f9fafb;\">\r\n              <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" width=\"100%\">\r\n\r\n                <!-- FOOTER TEXT -->\r\n                <tr>\r\n                  <td align=\"center\" style=\"padding-bottom: 16px;\">\r\n                    <p style=\"margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 1.5; color: #6b7280;\">\r\n                      <strong style=\"color: #12111a;\">WRANNGLE SYSTEMS LLC</strong><br>\r\n                      Industrial-Grade AI Automation\r\n                    </p>\r\n                  </td>\r\n                </tr>\r\n\r\n                <!-- SOCIAL LINKS (optional - customize as needed) -->\r\n                <tr>\r\n                  <td align=\"center\" style=\"padding-bottom: 16px;\">\r\n                    <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin: 0 auto;\">\r\n                      <tr>\r\n                        <td style=\"padding: 0 8px;\">\r\n                          <a href=\"https://wranngle.com\" style=\"color: #ff5f00; text-decoration: none; font-size: 12px; font-weight: 600;\">Website</a>\r\n                        </td>\r\n                        <td style=\"padding: 0 8px; color: #e5e7eb;\">|</td>\r\n                        <td style=\"padding: 0 8px;\">\r\n                          <a href=\"https://wranngle.com/terms\" style=\"color: #6b7280; text-decoration: none; font-size: 12px;\">Terms</a>\r\n                        </td>\r\n                        <td style=\"padding: 0 8px; color: #e5e7eb;\">|</td>\r\n                        <td style=\"padding: 0 8px;\">\r\n                          <a href=\"https://wranngle.com/privacy\" style=\"color: #6b7280; text-decoration: none; font-size: 12px;\">Privacy</a>\r\n                        </td>\r\n                      </tr>\r\n                    </table>\r\n                  </td>\r\n                </tr>\r\n\r\n                <!-- UNSUBSCRIBE / FOOTER MESSAGE (customizable per email type) -->\r\n                <tr>\r\n                  <td align=\"center\" style=\"padding-bottom: 8px;\">\r\n                    {{FOOTER_MESSAGE}}\r\n                  </td>\r\n                </tr>\r\n\r\n                <!-- COMPANY ADDRESS -->\r\n                <tr>\r\n                  <td align=\"center\">\r\n                    <p style=\"margin: 0; font-size: 11px; line-height: 1.5; color: #9ca3af;\">\r\n                      © 2026 Wranngle Systems LLC. All rights reserved.<br>\r\n                      Wranngle Systems LLC\r\n                    </p>\r\n                  </td>\r\n                </tr>\r\n\r\n              </table>\r\n            </td>\r\n          </tr>\r\n\r\n        </table>\r\n\r\n      </td>\r\n    </tr>\r\n  </table>\r\n\r\n  <!-- TRACKING PIXEL (optional) -->\r\n  \r\n\r\n</body>\r\n</html>\r\n",
+        "options": {}
+      }
+    },
+    {
+      "id": "rcs-notify",
+      "name": "Send RCS/SMS Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        450
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.wranngle.com/webhook/universal-message-v1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Webhook-Secret",
+              "value": "wranngle-msg-2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ phone_number: '<REDACTED:phone>', template: 'lead-intake', variables: { BUSINESS_NAME: $json.businessName, INDUSTRY: $json.industry, OWNER_NAME: $json.ownerName, PHONE: $json.phone } }) }}",
+        "options": {
+          "timeout": 10000
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "code-build-intake",
+      "name": "Build Presales Intake",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const lead = $input.all()[0].json;\n\nconst intake = {\n  client_name: lead.businessName || 'Unknown',\n  contact_name: lead.ownerName || '',\n  contact_email: lead.email || '',\n  industry: lead.industry || '',\n  q01_workflow_name: `${lead.industry || 'Business'} Process Automation`,\n  q02_trigger_event: `New ${lead.package || 'automation'} request from ${lead.businessName || 'client'}`,\n  q03_business_objective: `Automate key ${lead.industry || 'business'} workflows to reduce manual effort and improve efficiency`,\n  q06_runs_per_period: 50,\n  q06_period_unit: 'day',\n  q07_avg_trigger_to_end: 15,\n  q07_time_unit: 'minutes',\n  q10_systems_involved: ['email', 'crm'],\n  lead_source: 'web',\n  urgency: 'medium',\n  notes: lead.notes || ''\n};\n\nreturn { json: { intake, intakeJson: JSON.stringify(intake) } };"
+      }
+    },
+    {
+      "id": "http-presales",
+      "name": "Generate Presales Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PRESALES_API_URL || 'http://localhost:3000' }}/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ input: $json.intakeJson, structured: true }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "sarah-callback-guard",
+      "name": "Sarah Callback Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1050,
+        650
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ (function(){\n  const b = $json.body || $json;\n  const email = (b.email || '').toLowerCase();\n  const notes = (b.notes || '').toLowerCase();\n  const business = (b.businessName || '').toLowerCase();\n  const phone = (b.phone || '').replace(/[^0-9+]/g, '');\n  if (email === 'health-monitor@wranngle.com' || email === 'audit@wranngle.com' || email.endsWith('@example.com')) return false;\n  if (notes.includes('audit-test') || notes.includes('health-monitor') || notes.includes('please ignore')) return false;\n  if (business.startsWith('test') || business.startsWith('audit') || business.startsWith('health-monitor')) return false;\n  if (!phone || phone.length < 10) return false;\n  return true;\n})() }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "sarah-callback-skipped",
+      "name": "Sarah Callback Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        850,
+        800
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sarah_callback_dispatched",
+              "name": "sarah_callback_dispatched",
+              "value": "={{ false }}",
+              "type": "boolean"
+            },
+            {
+              "id": "sarah_callback_skip_reason",
+              "name": "sarah_callback_skip_reason",
+              "value": "Synthetic / test / health-monitor traffic — outbound call suppressed",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "build-outbound-payload",
+      "name": "Build Sarah Outbound Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        700
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $input.item.json;\n// Format Lead Data passes through the raw webhook envelope (headers/body/...). Pull from .body.\nconst lead = raw.body || raw;\nconst ownerName = (lead.ownerName || '').trim();\nconst firstName = ownerName.split(/\\s+/)[0] || ownerName || 'there';\n// Normalize phone to E.164 (US default).\nlet phone = String(lead.phone || '').replace(/[^0-9+]/g, '');\nif (!phone.startsWith('+')) {\n  if (phone.length === 10) phone = '+1' + phone;\n  else if (phone.length === 11 && phone.startsWith('1')) phone = '+' + phone;\n}\n\nconst payload = {\n  // Wranngle.com Sarah agent (per Goal B brief)\n  agent_id: '<REDACTED:elevenlabs-agent-id>',\n  // Outbound caller has a default phone number ID; only override if needed.\n  phone: phone,\n  customer_name: ownerName || (lead.businessName || 'Caller'),\n  customer_id: 'lead_' + (lead.businessName || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 60) + '_' + Date.now(),\n  account_type: 'trial',\n  call_purpose: 'outbound qualification — fresh inbound web lead',\n  custom_variables: {\n    customer_first_name: firstName,\n    business_name: lead.businessName || 'Unknown',\n    industry: lead.industry || 'Unknown',\n    requested_package: lead.package || 'unspecified',\n    contact_email: lead.email || '',\n    lead_source: 'wranngle.com lead intake form',\n    framing_note: 'Treat this caller as a FRESH inbound lead who just submitted the wranngle.com pricing form. This is qualification, not a callback confirmation. The caller has NOT been contacted before. Open with: identify yourself, acknowledge their form submission, then qualify (BANT). Do NOT ask \"calling you back\" or \"did we connect earlier\" — they did not request a callback.',\n    submitted_at: lead.timestamp || new Date().toISOString(),\n    lead_notes: (lead.notes || '').slice(0, 500)\n  },\n  first_message_override: 'Hi ' + firstName + ', this is Sarah from Wranngle Systems. I saw you just submitted our pricing form for ' + (lead.businessName || 'your business') + '. I have a quick minute to walk you through how the 24/7 Filter would work for ' + (lead.industry || 'your industry') + ' — does now work, or would you rather schedule a deeper conversation?'\n};\n\nreturn { json: payload };"
+      }
+    },
+    {
+      "id": "trigger-sarah-outbound",
+      "name": "Trigger Sarah Outbound Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.wranngle.com/webhook/initiate-call-v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "rate-dedupe-guard",
+      "name": "Rate + Dedupe Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const item = $input.item.json;\nconst lead = item.body || item;\nconst now = Date.now();\nconst staticData = $getWorkflowStaticData('global');\nstaticData.rateDedupe = staticData.rateDedupe || { seen: {}, buckets: {} };\nconst state = staticData.rateDedupe;\n\nfor (const [key, expiresAt] of Object.entries(state.seen)) {\n  if (Number(expiresAt) <= now) delete state.seen[key];\n}\nfor (const [key, bucket] of Object.entries(state.buckets)) {\n  if (!bucket || Number(bucket.resetAt) <= now) delete state.buckets[key];\n}\n\nconst clean = (value) => String(value || '').trim().toLowerCase();\nconst email = clean(lead.email);\nconst businessName = clean(lead.businessName);\nconst phone = String(lead.phone || '').replace(/[^0-9+]/g, '');\nconst packageId = clean(lead.package);\nconst notes = clean(lead.notes).slice(0, 160);\nconst dedupeKey = [packageId, email, businessName, phone, notes].join('|');\nconst rateKey = email || phone || businessName || 'unknown';\nconst windowMs = 15 * 60 * 1000;\nconst maxPerWindow = 2;\n\nconst bucket = state.buckets[rateKey] || { count: 0, resetAt: now + windowMs };\nbucket.count += 1;\nstate.buckets[rateKey] = bucket;\n\nlet allowed = true;\nlet reason = '';\nconst synthetic = email === 'health-monitor@wranngle.com' || email === 'audit@wranngle.com' || email.endsWith('@example.com') || email.endsWith('@example.invalid') || businessName.startsWith('test') || businessName.startsWith('audit') || businessName.startsWith('health-monitor') || notes.includes('audit-test') || notes.includes('health-monitor') || notes.includes('please ignore');\nif (synthetic) {\n  allowed = false;\n  reason = 'synthetic_or_monitor_traffic';\n} else if (state.seen[dedupeKey]) {\n  allowed = false;\n  reason = 'duplicate_lead_payload';\n} else if (bucket.count > maxPerWindow) {\n  allowed = false;\n  reason = 'lead_rate_limited';\n}\n\nif (allowed) state.seen[dedupeKey] = now + windowMs;\n\nreturn {\n  json: {\n    ...item,\n    rate_limit: {\n      allowed,\n      reason,\n      rateKey,\n      dedupeKey,\n      windowSeconds: Math.floor(windowMs / 1000),\n      count: bucket.count,\n      max: maxPerWindow,\n    },\n  },\n};"
+      }
+    },
+    {
+      "id": "if-rate-dedupe-allowed",
+      "name": "Continue If Allowed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.rate_limit.allowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "rate-dedupe-suppressed",
+      "name": "Suppressed Duplicate / Rate Limited",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        850,
+        120
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "suppressed",
+              "name": "suppressed",
+              "value": "={{ true }}",
+              "type": "boolean"
+            },
+            {
+              "id": "reason",
+              "name": "reason",
+              "value": "={{ $json.rate_limit.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "suppressed_at",
+              "name": "suppressed_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Format Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Send Email Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send RCS/SMS Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Presales Intake",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sarah Callback Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Presales Intake": {
+      "main": [
+        [
+          {
+            "node": "Generate Presales Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sarah Callback Guard": {
+      "main": [
+        [
+          {
+            "node": "Build Sarah Outbound Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sarah Callback Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Sarah Outbound Payload": {
+      "main": [
+        [
+          {
+            "node": "Trigger Sarah Outbound Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Rate + Dedupe Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rate + Dedupe Guard": {
+      "main": [
+        [
+          {
+            "node": "Continue If Allowed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue If Allowed": {
+      "main": [
+        [
+          {
+            "node": "Format Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Suppressed Duplicate / Rate Limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}

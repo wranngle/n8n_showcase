@@ -1,0 +1,1381 @@
+{
+  "name": "elevenlabs_webhook_listener",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "elevenlabs_webhook_listener",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-receiver",
+      "name": "ElevenLabs Post-Call Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        1320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, conversation_id: $json.body?.data?.conversation_id || 'unknown', processing_id: 'proc_' + Date.now() + '_' + Math.random().toString(36).substr(2,9), timestamp: new Date().toISOString(), processing: 'async' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "immediate-ack",
+      "name": "Immediate ACK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// ===========================================\n// CONFIGURATION - Edit these values directly\n// ===========================================\nconst CONFIG = {\n  // Slack Webhook URL - Get from Slack App settings\n  // Leave empty to disable Slack notifications\n  SLACK_WEBHOOK_URL: '',\n  \n  // Qdrant Vector DB - Set URL and API key to enable\n  // Leave empty to skip vectorization\n  QDRANT_URL: 'http://qdrant:6333',  // Docker service name\n  QDRANT_API_KEY: '',\n  \n  // Gemini API for embeddings (768 dimensions)\n  GEMINI_API_KEY: '<REDACTED:google-api-key>',\n  \n  // Feature flags\n  ENABLE_SLACK: false,\n  ENABLE_QDRANT: true,\n  ENABLE_CRM: false,  // Disabled - no Pipedrive yet\n  \n  // Debug mode - logs extra info\n  DEBUG: true\n};\n\n// Parse the incoming payload\nconst payload = $json.body || $json;\nconst processing_id = 'proc_' + Date.now() + '_' + Math.random().toString(36).substr(2,9);\n\n// Validate required fields\nconst requiredFields = {\n  'type': payload.type,\n  'data': payload.data,\n  'data.conversation_id': payload.data?.conversation_id\n};\n\nconst missingFields = [];\nfor (const [field, value] of Object.entries(requiredFields)) {\n  if (value === undefined || value === null || value === '') {\n    missingFields.push(field);\n  }\n}\n\nif (missingFields.length > 0) {\n  return {\n    json: {\n      config: CONFIG,\n      valid: false,\n      error: 'SCHEMA_VALIDATION_FAILED',\n      missing_fields: missingFields,\n      event_type: payload.type || 'undefined',\n      processing_id\n    }\n  };\n}\n\n// Extract and normalize all fields\nconst data = payload.data;\nconst clientData = data.conversation_initiation_client_data || {};\nconst dynamicVars = clientData.dynamic_variables || {};\nconst analysis = data.analysis || {};\nconst metadata = data.metadata || {};\nconst dataCollection = analysis.data_collection_results || {};\n\nconst transcript = data.transcript || [];\nconst transcript_text = transcript.map(t => t.role + ': ' + t.message).join('\\n');\n\nreturn {\n  json: {\n    config: CONFIG,\n    valid: true,\n    processing_id,\n    event_type: payload.type,\n    conversation_id: data.conversation_id,\n    agent_id: data.agent_id || '',\n    pipedrive_person_id: dynamicVars.pipedrive_person_id || null,\n    customer_name: dynamicVars.customer_name || '',\n    customer_phone: dynamicVars.phone || metadata.caller_phone || '',\n    call_duration_secs: metadata.call_duration_secs || 0,\n    start_time_unix: metadata.start_time_unix_secs || 0,\n    call_successful: analysis.call_successful || 'unknown',\n    transcript_summary: analysis.transcript_summary || '',\n    budget: dataCollection.budget || dataCollection.Budget || 'not_discussed',\n    timeline: dataCollection.timeline || dataCollection.Timeline || 'not_discussed',\n    authority: dataCollection.authority || dataCollection.Authority || 'not_discussed',\n    need: dataCollection.need || dataCollection.Need || 'not_discussed',\n    transcript,\n    transcript_text,\n    transcript_available: transcript.length > 0,\n    failure_reason: data.failure_reason || null,\n    received_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "config-loader",
+      "name": "Load Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        1104
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "post_call_transcription",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "call_initiation_failure",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.valid }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "event-router",
+      "name": "Route by Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1792,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.config.ENABLE_SLACK }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-slack-enabled",
+      "name": "Slack Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2688,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: ($json.call_successful === 'success' ? '✅ Call Completed' : '❌ Call ' + $json.call_successful) + ' - ' + ($json.customer_name || 'Unknown') + ' (' + Math.floor(($json.call_duration_secs || 0) / 60) + 'm ' + (($json.call_duration_secs || 0) % 60) + 's)', attachments: [{ color: $json.call_successful === 'success' ? 'good' : 'warning', fields: [{ title: 'Customer', value: $json.customer_name || 'Unknown', short: true }, { title: 'Duration', value: Math.floor(($json.call_duration_secs || 0) / 60) + 'm ' + (($json.call_duration_secs || 0) % 60) + 's', short: true }, { title: 'Outcome', value: $json.call_successful || 'unknown', short: true }, { title: 'Conv ID', value: $json.conversation_id, short: true }] }] }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "slack-notify",
+      "name": "Slack Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        0
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "slack_status",
+              "value": "disabled",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "slack-skipped",
+      "name": "Slack Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2912,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.pipedrive_person_id ?? \"\").toString() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "leftValue": "={{ $json.config.ENABLE_CRM }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "check-crm-id",
+      "name": "Has CRM ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        912
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\nconst qualificationStatus = data.call_successful === 'success' ? 'qualified' : data.call_successful === 'failure' ? 'not_qualified' : 'needs_review';\nconst qualificationScore = data.call_successful === 'success' ? 80 : data.call_successful === 'failure' ? 20 : 50;\nconst noteContent = `## AI Qualification Call Summary\n\n**Status:** ${qualificationStatus}\n**Score:** ${qualificationScore}/100\n**Duration:** ${Math.round((data.call_duration_secs || 0) / 60)} minutes\n\n### Summary\n${data.transcript_summary || 'No summary available'}\n\n### BANT\n- Budget: ${data.budget}\n- Timeline: ${data.timeline}\n- Authority: ${data.authority}\n- Need: ${data.need}\n\n---\n*Conversation ID: ${data.conversation_id}*`;\nconst crmLabel = qualificationStatus === 'qualified' ? 'Hot Lead' : qualificationStatus === 'not_qualified' ? 'Cold' : 'Warm Lead';\nreturn { json: { ...data, crm_note_content: noteContent, crm_label: crmLabel, crm_qualification_status: qualificationStatus } };"
+      },
+      "id": "crm-prep",
+      "name": "Prep CRM Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "note",
+        "content": "={{ $json.crm_note_content }}",
+        "additionalFields": {
+          "person_id": "={{ $json.pipedrive_person_id }}"
+        }
+      },
+      "id": "pipedrive-note",
+      "name": "Pipedrive: Create Note",
+      "type": "n8n-nodes-base.pipedrive",
+      "typeVersion": 1,
+      "position": [
+        2688,
+        840
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "crm_skip_reason",
+              "value": "={{ $json.config.ENABLE_CRM ? 'No valid pipedrive_person_id' : 'CRM disabled in config' }}",
+              "type": "string"
+            },
+            {
+              "name": "crm_updated",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "skip-crm",
+      "name": "Skip CRM",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2912,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.config.ENABLE_QDRANT }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $json.transcript_available }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-qdrant-enabled",
+      "name": "Qdrant Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        1344
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key={{ $json.config.GEMINI_API_KEY }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'models/text-embedding-004', content: { parts: [{ text: ($json.transcript_summary || '') + ' ' + ($json.transcript_text || '').substring(0, 8000) }] } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "generate-embedding",
+      "name": "Generate Embedding (Gemini)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2688,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $('Load Config').item.json.config.QDRANT_URL + '/collections/call_transcripts/points' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "api-key",
+              "value": "={{ $('Load Config').item.json.config.QDRANT_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ points: [{ id: Math.abs($('Load Config').item.json.conversation_id.split('').reduce((a,b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0)), vector: $json.embedding?.values || [], payload: { conversation_id: $('Load Config').item.json.conversation_id, agent_id: $('Load Config').item.json.agent_id, customer_name: $('Load Config').item.json.customer_name, customer_phone: $('Load Config').item.json.customer_phone, call_successful: $('Load Config').item.json.call_successful, call_duration_secs: $('Load Config').item.json.call_duration_secs, transcript_summary: $('Load Config').item.json.transcript_summary, budget: $('Load Config').item.json.budget, timeline: $('Load Config').item.json.timeline, created_at: $now.toISO() } }] }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "qdrant-upsert",
+      "name": "Qdrant Upsert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "vector_stored",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "name": "vector_skip_reason",
+              "value": "={{ $json.config.ENABLE_QDRANT ? 'No transcript available' : 'Qdrant disabled in config' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "qdrant-skipped",
+      "name": "Qdrant Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2912,
+        1440
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "event_type",
+              "value": "call_initiation_failure",
+              "type": "string"
+            },
+            {
+              "name": "failure_reason",
+              "value": "={{ $json.failure_reason }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "failure-handler",
+      "name": "Handle Call Failure",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2688,
+        1728
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.config.SLACK_WEBHOOK_URL || 'https://hooks.slack.com/services/disabled' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: '🚨 Call Initiation Failed', attachments: [{ color: 'danger', fields: [{ title: 'Failure Reason', value: $json.failure_reason || 'Unknown', short: false }, { title: 'Conversation ID', value: $json.conversation_id || 'N/A', short: true }, { title: 'Processing ID', value: $json.processing_id || 'N/A', short: true }] }] }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "slack-alert-failure",
+      "name": "Slack Alert: Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        1824
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "status",
+              "value": "invalid_payload",
+              "type": "string"
+            },
+            {
+              "name": "error",
+              "value": "={{ $json.error }}",
+              "type": "string"
+            },
+            {
+              "name": "missing_fields",
+              "value": "={{ JSON.stringify($json.missing_fields) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "invalid-handler",
+      "name": "Log Invalid Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2688,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst firstItem = items[0]?.json || {};\n\n// Aggregate results from all branches\nconst result = {\n  processing_id: firstItem.processing_id || 'unknown',\n  conversation_id: firstItem.conversation_id || 'unknown',\n  event_type: firstItem.event_type || 'unknown',\n  completed_at: new Date().toISOString(),\n  \n  // Status flags\n  slack_notified: items.some(i => i.json?.ok || i.json?.attachments),\n  crm_updated: items.some(i => i.json?.id && i.json?.content),\n  vector_stored: items.some(i => i.json?.result?.operation_id || i.json?.status === 'ok' || i.json?.result?.status === 'completed'),\n  \n  // Config status\n  config_slack_enabled: firstItem.config?.ENABLE_SLACK || false,\n  config_qdrant_enabled: firstItem.config?.ENABLE_QDRANT || false,\n  config_crm_enabled: firstItem.config?.ENABLE_CRM || false,\n  \n  // Collect any errors\n  errors: items\n    .filter(i => i.json?.error || i.json?.errorCode || i.json?.crm_skip_reason || i.json?.vector_skip_reason)\n    .map(i => ({\n      type: i.json?.crm_skip_reason ? 'crm_skipped' : i.json?.vector_skip_reason ? 'vector_skipped' : 'error',\n      message: i.json?.error || i.json?.errorCode || i.json?.crm_skip_reason || i.json?.vector_skip_reason || i.json?.message\n    })),\n  \n  items_processed: items.length\n};\n\nresult.overall_success = result.errors.filter(e => e.type === 'error').length === 0;\n\nreturn [{ json: result }];"
+      },
+      "id": "final-status",
+      "name": "Final Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3136,
+        984
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "workflow-end",
+      "name": "Workflow Complete",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        984
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst sigHeader = headers['elevenlabs-signature'] || headers['ElevenLabs-Signature'] || '';\nconst parts = Object.fromEntries(sigHeader.split(',').map(p => { const i = p.indexOf('='); return [p.slice(0,i).trim(), p.slice(i+1).trim()]; }));\nconst t = parts.t || '';\nconst v0 = parts.v0 || '';\nconst ageSec = t ? Math.abs(Math.floor(Date.now() / 1000) - Number(t)) : null;\nconst stale = !t || !v0 || !Number.isFinite(ageSec) || ageSec > 60 * 30;\nconst body = JSON.stringify(item.body ?? {});\nreturn [{ json: { ...item, _hmac_t: t, _hmac_v0: v0, _hmac_payload: t + '.' + body, _hmac_stale: stale, _hmac_age: ageSec } }];"
+      },
+      "id": "hmac-build",
+      "name": "Verify HMAC: parse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        1416
+      ]
+    },
+    {
+      "parameters": {
+        "action": "hmac",
+        "type": "SHA256",
+        "value": "={{ $json._hmac_payload }}",
+        "dataPropertyName": "_hmac_expected",
+        "secret": "<REDACTED:elevenlabs-webhook-secret>"
+      },
+      "id": "hmac-compute",
+      "name": "Verify HMAC: compute",
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        896,
+        1416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "h1",
+              "leftValue": "={{ !$json._hmac_stale }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "h2",
+              "leftValue": "={{ $json._hmac_v0 }}",
+              "rightValue": "={{ $json._hmac_expected }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "hmac-branch",
+      "name": "HMAC: ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        1416
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: \"UNAUTHORIZED\", message: $json._hmac_stale ? \"stale_or_missing_signature\" : \"signature_mismatch\" } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "hmac-reject",
+      "name": "HMAC: reject",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        1512
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $input.item.json;\nconst transcript = d.transcript_text || '';\nif (!transcript || transcript.length < 20) {\n  return { json: { ...d, _extraction_skip: true, _extraction_skip_reason: 'transcript too short' } };\n}\nreturn {\n  json: {\n    ...d,\n    _extraction_skip: false,\n    skip: false,\n    transcript: transcript,\n    agent_system_prompt: 'You are Sarah, a sales development representative for Wranngle Systems. You qualify leads for The 24/7 Filter — an AI-powered after-hours call answering service for SMBs (HVAC, plumbing, property management, legal).',\n    extraction_config: {\n      categories: [\n        { category_id: 'sales', context_rules: { default_strictness: 'medium', require_rationale: true, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'deal_stage', type: 'enum', values: ['discovery','qualification','proposal','negotiation','closed_won','closed_lost'], required: true, default_value: 'discovery', prompt: 'Stage of sales process. Did the caller express need? Mention budget/timeline?', strictness: 'high' },\n          { field_id: 'budget_mentioned', type: 'string', required: false, prompt: 'Any budget, price range, financial constraints mentioned. Include exact figures.', strictness: 'medium' },\n          { field_id: 'decision_authority', type: 'enum', values: ['caller','other','unknown'], required: true, default_value: 'unknown', prompt: 'Does the caller have decision authority?', strictness: 'medium' },\n          { field_id: 'timeline', type: 'string', required: false, prompt: 'Any timeline / deadline / urgency mentioned.', strictness: 'medium' },\n          { field_id: 'next_steps', type: 'string', required: false, prompt: 'Next steps discussed or agreed.', strictness: 'low' },\n          { field_id: 'qualification_status', type: 'enum', values: ['qualified','not_qualified','needs_review'], required: true, default_value: 'needs_review', prompt: 'Qualified = expressed need + budget or timeline. Not qualified = no interest, wrong number, spam.', strictness: 'medium' },\n          { field_id: 'transcript_summary', type: 'string', required: true, default_value: 'No summary available', prompt: 'Concise 2-3 sentence summary: who called, what they wanted, outcome.', strictness: 'low' }\n        ] },\n        { category_id: 'support', context_rules: { default_strictness: 'medium', require_rationale: true, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'issue_type', type: 'string', required: true, prompt: 'What type of issue or request is the caller reporting? Categorize briefly.', strictness: 'medium' },\n          { field_id: 'urgency', type: 'enum', values: ['emergency','soon','routine','estimate'], required: true, default_value: 'routine', prompt: 'How urgent: emergency = safety/critical down. soon = quick attention. routine = standard. estimate = quote/info only.', strictness: 'high' },\n          { field_id: 'resolution_status', type: 'enum', values: ['resolved','unresolved','escalated'], required: true, default_value: 'unresolved', prompt: 'Was the issue resolved during the call, left unresolved, or escalated?', strictness: 'high' },\n          { field_id: 'escalation_needed', type: 'boolean', required: true, default_value: false, prompt: 'Does this call require escalation to a human agent or specialist?', strictness: 'high' },\n          { field_id: 'existing_request', type: 'boolean', required: true, default_value: false, prompt: 'Is this regarding an existing request/ticket? Detection: case/ticket numbers, \"following up on\", \"checking status of\". Default FALSE when unclear.', strictness: 'high' },\n          { field_id: 'request_affected_asset', type: 'string', required: false, prompt: 'Specific equipment, device, software, or system involved. Include model numbers, asset IDs if stated. Null when none.', strictness: 'medium' },\n          { field_id: 'request_deadline', type: 'string', required: false, prompt: 'Requestor-specified date or timeframe. Examples: \"fixed by Friday\", \"within 48 hours\". Null when none.', strictness: 'medium' },\n          { field_id: 'request_description', type: 'string', required: false, prompt: 'Single factual paragraph (80-120 words) using ONLY explicitly stated information. Inverted-pyramid. Plain language, active voice. No future commitments.', strictness: 'low' },\n          { field_id: 'request_summary', type: 'string', required: false, prompt: 'Precise ticket title (<80 chars). Format: \"[Equipment/Issue] - [Location]\". Avoid generic terms. Include equipment ID if provided.', strictness: 'medium' }\n        ] },\n        { category_id: 'external_contacts', context_rules: { default_strictness: 'high', require_rationale: false, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'requestor_first_name', type: 'string', required: false, prompt: 'First name from self-introduction. Extract ONLY first name. Null if none.', strictness: 'high' },\n          { field_id: 'requestor_last_name', type: 'string', required: false, prompt: 'Last name only. Capture compound surnames completely (e.g., \"De La Vega\"). Null if none.', strictness: 'high' },\n          { field_id: 'requestor_company_name', type: 'string', required: false, prompt: 'Caller employer/company from \"I am with / calling from / I work for\". Never extract service-provider name from agent greeting. Ignore the company being called.', strictness: 'medium' },\n          { field_id: 'contact_phone', type: 'phone', required: false, prompt: 'Final confirmed callback phone in E.164 (+1XXXXXXXXXX). If user corrected a number, use correction only. Null if <10 digits.', strictness: 'high' },\n          { field_id: 'contact_email', type: 'email', required: false, prompt: 'Email caller provides.', strictness: 'high' },\n          { field_id: 'contact_preferred_followup_channel', type: 'enum', values: ['phone','sms','email'], required: false, default_value: 'phone', prompt: 'Default phone when unclear. Triggers: \"call me\", \"text me\", \"send me an email\".', strictness: 'medium' },\n          { field_id: 'contact_preferred_followup_time', type: 'string', required: false, prompt: 'Follow-up timing preferences. Examples: \"tomorrow afternoon\", \"after 6 PM only\". Null when none.', strictness: 'medium' },\n          { field_id: 'requested_service_address', type: 'string', required: false, prompt: 'Physical location WHERE WORK HAPPENS (dispatch destination). NOT the branch being contacted. Null if no dispatch required.', strictness: 'medium' },\n          { field_id: 'requestor_is_contact', type: 'boolean', required: true, default_value: true, prompt: 'Is requestor the designated contact for follow-up? Default TRUE; FALSE only if explicit alternate contact named.', strictness: 'high' }\n        ] },\n        { category_id: 'internal_contacts', context_rules: { default_strictness: 'medium', require_rationale: false, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'requested_person', type: 'string', required: false, prompt: 'Name of specific person requestor asks to speak with. Null if no specific person requested by name.', strictness: 'high' },\n          { field_id: 'department', type: 'enum', values: ['Service','Field Service','Sales','Marketing','Purchasing','Fulfillment','Shipping','Billing','Finance','Accounting','HR','Payroll','IT','IT Support','Operations','Contracts','Administration','General'], required: true, default_value: 'General', prompt: 'EXACTLY one from allowed values. Default General when unclear.', strictness: 'high' },\n          { field_id: 'transfer_reason', type: 'string', required: false, prompt: 'Short summary (<=120 chars) explaining WHY transferred. Null if no transfer.', strictness: 'low' },\n          { field_id: 'conversation_transferred', type: 'boolean', required: true, default_value: false, prompt: 'Was conversation transferred to live person? TRUE only when actual transfer mechanism invoked. Default FALSE.', strictness: 'high' },\n          { field_id: 'transfer_destination', type: 'string', required: false, prompt: 'If transferred, capture destination label. Examples: \"Main operator\", \"Billing department\". Null if no transfer.', strictness: 'medium' }\n        ] },\n        { category_id: 'external_company', context_rules: { default_strictness: 'medium', require_rationale: false, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'company_industry', type: 'string', required: false, prompt: 'Industry the caller\\'s company operates in.', strictness: 'medium' },\n          { field_id: 'company_size', type: 'string', required: false, prompt: 'Any mention of company size (employees, revenue, locations).', strictness: 'medium' },\n          { field_id: 'company_location', type: 'string', required: false, prompt: 'Caller\\'s company location (city, state, region).', strictness: 'medium' }\n        ] },\n        { category_id: 'internal_company', context_rules: { default_strictness: 'medium', require_rationale: false, null_behavior: 'return_null_with_rationale' }, fields: [\n          { field_id: 'site_location', type: 'string', required: false, prompt: 'Site or branch location for internal routing. Null if none mentioned.', strictness: 'medium' },\n          { field_id: 'service_area', type: 'string', required: false, prompt: 'Service area or product line this call relates to.', strictness: 'medium' },\n          { field_id: 'account_status', type: 'enum', values: ['active','inactive','prospect','churned'], required: true, default_value: 'prospect', prompt: 'Caller\\'s account status: existing customer, prospect, or former.', strictness: 'high' }\n        ] }\n      ],\n      global_context: { agent_identity: 'Sarah - Wranngle Lead Specialist', business_domain: 'AI-powered after-hours call answering for SMBs' }\n    },\n    metadata: { conversation_id: d.conversation_id, agent_id: d.agent_id }\n  }\n};\n"
+      },
+      "id": "extraction-prep",
+      "name": "Prep Extraction Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json._extraction_skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extraction-skip-router",
+      "name": "Extraction: skip?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": "2Z4wykQk0x1Y67Sr",
+        "mode": "each",
+        "options": {}
+      },
+      "id": "extraction-call",
+      "name": "Call Extraction Engine",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        576
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst out = [];\nfor (const it of items) {\n  const input = it.json || {};\n  const fields = input.fields || [];\n  const meta = {\n    extraction_id: input.extraction_id || '',\n    conversation_id: input.conversation_id || '',\n    timestamp: input.timestamp || new Date().toISOString(),\n    model: input.model || '',\n    categories_processed: input.categories_processed || 0,\n    errors_count: (input.errors || []).length,\n  };\n  const row = { ...meta };\n  for (const f of fields) {\n    const key = (f.category || 'unknown') + '__' + (f.field_id || 'unknown');\n    row[key] = String(f.value ?? '');\n  }\n  row.raw_envelope = JSON.stringify(input);\n  out.push({ json: row });\n}\nreturn out;"
+      },
+      "id": "extraction-flatten",
+      "name": "Flatten Extraction Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cgezudpwebljssmeuybm.supabase.co/rest/v1/extraction_results",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<REDACTED:jwt>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <REDACTED:jwt>"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "extraction-supabase",
+      "name": "Audit: Supabase extraction_results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        576
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "extraction-skipped-noop",
+      "name": "Extraction Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [
+        2912,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cgezudpwebljssmeuybm.supabase.co/rest/v1/post_call_dlq",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<REDACTED:jwt>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <REDACTED:jwt>"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ correlation_id: $json.processing_id || \"unknown\", conversation_id: $json.conversation_id || \"unknown\", event_type: $json.event_type || \"unknown\", failure_reason: $json.failure_reason || $json.error || \"unspecified\", payload_excerpt: JSON.stringify($json).slice(0,4000), created_at: new Date().toISOString() }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "dlq-writeback",
+      "name": "DLQ: Supabase post_call_dlq",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        1632
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.pipedrive.com/v1/persons/{{ $('Prep CRM Data').item.json.pipedrive_person_id }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "api_token",
+              "value": "={{ $env.PIPEDRIVE_API_TOKEN || \"\" }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((function() {\n  // Pipedrive Person UPDATE body. Pulls qualification context from\n  // upstream \"Prep CRM Data\" so updates carry meaningful tags rather\n  // than just visibility.\n  //\n  // To enable auto-labeling, set the operator-specific Pipedrive label\n  // IDs via n8n env vars (Settings -> Variables):\n  //   PIPEDRIVE_LABEL_HOT  = id of \"Hot Lead\" label\n  //   PIPEDRIVE_LABEL_WARM = id of \"Warm Lead\" label\n  //   PIPEDRIVE_LABEL_COLD = id of \"Cold\" label\n  //\n  // Without those vars set, the body falls back to visible_to=3 only\n  // (no destructive overwrite of name/phone/email arrays).\n  const body = { visible_to: 3 };\n  const label = $json.crm_label;\n  const labelMap = {\n    'Hot Lead':  $env.PIPEDRIVE_LABEL_HOT,\n    'Warm Lead': $env.PIPEDRIVE_LABEL_WARM,\n    'Cold':      $env.PIPEDRIVE_LABEL_COLD,\n  };\n  const labelId = label && labelMap[label];\n  if (labelId) body.label_ids = [parseInt(labelId, 10)];\n  return body;\n})()) }}\n",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "pipedrive-update-person",
+      "name": "Pipedrive: Update Person Label",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2912,
+        768
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst body = item.body || {};\nconst data = body.data || body;\nconst signature = headers['elevenlabs-signature'] || headers['ElevenLabs-Signature'] || '';\nconst ip = headers['cf-connecting-ip'] || headers['x-forwarded-for'] || headers['CF-Connecting-IP'] || 'unknown';\nconst conversationId = data.conversation_id || data.conversation?.id || body.conversation_id || 'unknown';\nconst eventType = body.type || body.event_type || data.type || data.event_type || 'unknown';\nconst callId = data.call_id || data.call?.id || body.call_id || 'unknown';\nconst now = Date.now();\nconst windowMs = 15 * 60 * 1000;\nconst maxPerWindow = 10;\nconst dedupeMs = 24 * 60 * 60 * 1000;\nfunction normalize(value) { return String(value ?? '').trim().toLowerCase().replace(/\\s+/g, ' '); }\nfunction hash(value) { let result = 0; for (const character of String(value)) { result = (result * 31 + character.codePointAt(0)) % Number.MAX_SAFE_INTEGER; } return result.toString(36); }\nconst staticData = $getWorkflowStaticData('global');\nstaticData.postCallGuard = staticData.postCallGuard || { rate: {}, dedupe: {} };\nconst guard = staticData.postCallGuard;\nlet cleaned = 0;\nfor (const [key, record] of Object.entries(guard.rate)) { if (cleaned >= 50) break; if (!record || record.resetAt <= now) { delete guard.rate[key]; cleaned++; } }\ncleaned = 0;\nfor (const [key, expiresAt] of Object.entries(guard.dedupe)) { if (cleaned >= 50) break; if (expiresAt <= now) { delete guard.dedupe[key]; cleaned++; } }\nconst principal = hash([ip, signature.slice(0, 80), conversationId].map(normalize).join('|'));\nconst rate = guard.rate[principal] || { count: 0, resetAt: now + windowMs };\nif (rate.resetAt <= now) { rate.count = 0; rate.resetAt = now + windowMs; }\nrate.count++;\nguard.rate[principal] = rate;\nconst dedupeKey = hash([signature, conversationId, eventType, callId].map(normalize).join('|'));\nconst duplicate = Boolean(guard.dedupe[dedupeKey]);\nconst rateLimited = rate.count > maxPerWindow;\nif (!duplicate) { guard.dedupe[dedupeKey] = now + dedupeMs; }\nconst allowed = !duplicate && !rateLimited;\nreturn [{ json: { ...item, _post_call_guard: { allowed, duplicate, rateLimited, reason: allowed ? 'allowed' : duplicate ? 'duplicate' : 'rate_limited', count: rate.count, limit: maxPerWindow, resetAt: new Date(rate.resetAt).toISOString() } } }];"
+      },
+      "id": "post-call-rate-dedupe-guard",
+      "name": "Post-Call Rate + Dedupe Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        1320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json._post_call_guard.allowed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "post-call-rate-dedupe-allowed",
+      "name": "Post-Call Continue If Allowed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        1320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { received: true, suppressed: true, reason: $json._post_call_guard.reason, timestamp: new Date().toISOString() } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "post-call-rate-dedupe-suppressed",
+      "name": "Post-Call Suppressed / Rate Limited",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        1224
+      ]
+    }
+  ],
+  "connections": {
+    "ElevenLabs Post-Call Webhook": {
+      "main": [
+        [
+          {
+            "node": "Post-Call Rate + Dedupe Guard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Immediate ACK": {
+      "main": [
+        [
+          {
+            "node": "Load Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Config": {
+      "main": [
+        [
+          {
+            "node": "Route by Event Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event Type": {
+      "main": [
+        [
+          {
+            "node": "Slack Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Has CRM ID?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Qdrant Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prep Extraction Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Call Failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Invalid Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Slack Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Slack Notify",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Notify": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Skipped": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has CRM ID?": {
+      "main": [
+        [
+          {
+            "node": "Prep CRM Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep CRM Data": {
+      "main": [
+        [
+          {
+            "node": "Pipedrive: Create Note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipedrive: Create Note": {
+      "main": [
+        [
+          {
+            "node": "Pipedrive: Update Person Label",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip CRM": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Generate Embedding (Gemini)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Qdrant Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embedding (Gemini)": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Upsert": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Skipped": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Call Failure": {
+      "main": [
+        [
+          {
+            "node": "Slack Alert: Failure",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DLQ: Supabase post_call_dlq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Alert: Failure": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Invalid Payload": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DLQ: Supabase post_call_dlq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Status": {
+      "main": [
+        [
+          {
+            "node": "Workflow Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC: parse": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC: compute",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify HMAC: compute": {
+      "main": [
+        [
+          {
+            "node": "HMAC: ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HMAC: ok?": {
+      "main": [
+        [
+          {
+            "node": "Immediate ACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HMAC: reject",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Extraction Input": {
+      "main": [
+        [
+          {
+            "node": "Extraction: skip?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraction: skip?": {
+      "main": [
+        [
+          {
+            "node": "Extraction Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Extraction Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Extraction Engine": {
+      "main": [
+        [
+          {
+            "node": "Flatten Extraction Results",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flatten Extraction Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flatten Extraction Results": {
+      "main": [
+        [
+          {
+            "node": "Audit: Supabase extraction_results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit: Supabase extraction_results": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraction Skipped": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipedrive: Update Person Label": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DLQ: Supabase post_call_dlq": {
+      "main": [
+        [
+          {
+            "node": "Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Call Rate + Dedupe Guard": {
+      "main": [
+        [
+          {
+            "node": "Post-Call Continue If Allowed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-Call Continue If Allowed": {
+      "main": [
+        [
+          {
+            "node": "Verify HMAC: parse",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post-Call Suppressed / Rate Limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": [
+    "ALPHA"
+  ]
+}

@@ -1,0 +1,490 @@
+{
+  "name": "[DEV] sarah / outbound-caller-with-client-data",
+  "description": null,
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "initiate-call",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook: Initiate Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const rawData = $input.item.json;\nconst input = rawData.body || rawData;\n\n// ============================================\n// INPUT VALIDATION (Critical for 98%+ success)\n// ============================================\nconst phone = input.phone;\n\n// Validate phone exists\nif (!phone || phone === null || phone === undefined) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone is required',\n      validation_failed: true,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Validate phone format (must start with +)\nif (typeof phone !== 'string' || !phone.startsWith('+')) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone must be in E.164 format (start with +)',\n      validation_failed: true,\n      received_phone: phone,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Validate phone has enough digits\nconst digitsOnly = phone.replace(/\\D/g, '');\nif (digitsOnly.length < 10) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone must have at least 10 digits',\n      validation_failed: true,\n      received_phone: phone,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// ============================================\n// BUILD PAYLOAD (Validation passed)\n// ============================================\nconst payload = {\n  agent_id: '<REDACTED:elevenlabs-agent-id>',\n  agent_phone_number_id: '<REDACTED:elevenlabs-phone-id>',\n  to_number: phone,\n  conversation_initiation_client_data: {\n    user_id: input.customer_id || phone,\n    dynamic_variables: {\n      customer_name: input.customer_name || '',\n      customer_first_name: input.customer_name?.split(' ')[0] || input.customer_name || '',\n      account_type: input.account_type || 'standard',\n      account_number: input.account_number || '',\n      call_purpose: input.call_purpose || 'general inquiry',\n      pipedrive_person_id: input.pipedrive_person_id || 0\n    }\n  }\n};\n\nreturn {\n  json: {\n    payload,\n    original_input: input,\n    client_data_injected: true,\n    validation_passed: true,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "build-client-data",
+      "name": "Build Client Data Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_failed }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "failed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_passed }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "passed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "validation-router",
+      "name": "Validation Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        620,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/convai/twilio/outbound-call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "call-elevenlabs",
+      "name": "ElevenLabs: Initiate Outbound Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        400
+      ]
+    },
+    {
+      "id": "build-response",
+      "name": "Build Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        400
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json;\nconst isSuccess = response.statusCode === 200 && response.body?.success !== false;\n\nif (isSuccess) {\n  return {\n    json: {\n      success: true,\n      conversation_id: response.body?.conversation_id || null,\n      call_sid: response.body?.callSid || null,\n      call_id: response.body?.conversation_id || null,\n      client_data_injected: true,\n      initiated: true,\n      timestamp: new Date().toISOString()\n    }\n  };\n} else {\n  return {\n    json: {\n      success: false,\n      error: response.body?.message || response.body?.detail || 'Unknown error',\n      client_data_injected: true,\n      initiated: false,\n      timestamp: new Date().toISOString()\n    }\n  };\n}"
+      }
+    },
+    {
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        400
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": "={{ $json.success ? 200 : 500 }}"
+        }
+      }
+    },
+    {
+      "id": "respond-validation-error",
+      "name": "Respond Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-sms",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "sms-webhook",
+      "name": "Webhook: Send SMS",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawData = $input.item.json;\n\n// Handle multiple nesting levels (webhook adds body, ElevenLabs may also nest)\n// Possible structures:\n// 1. Direct: { phone_number: ... }\n// 2. Single nest: { body: { phone_number: ... } }\n// 3. Double nest: { body: { body: { phone_number: ... } } }\nlet input = rawData;\nif (input.body) {\n  input = input.body;\n  if (input.body) {\n    input = input.body;  // Handle double nesting\n  }\n}\n\n// ============================================\n// INPUT VALIDATION\n// ============================================\nconst phone = input.phone_number;\n\n// Validate phone exists\nif (!phone || phone === null || phone === undefined) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone_number is required',\n      validation_failed: true,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Validate phone format (must start with +)\nif (typeof phone !== 'string' || !phone.startsWith('+')) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone_number must be in E.164 format (start with +)',\n      validation_failed: true,\n      received_phone: phone,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Validate phone has enough digits\nconst digitsOnly = phone.replace(/\\D/g, '');\nif (digitsOnly.length < 10) {\n  return {\n    json: {\n      success: false,\n      error: 'VALIDATION_ERROR: phone_number must have at least 10 digits',\n      validation_failed: true,\n      received_phone: phone,\n      timestamp: new Date().toISOString()\n    }\n  };\n}\n\n// Get caller name with fallbacks\nconst callerName = input.caller_name || input.first_name || 'there';\n\nreturn {\n  json: {\n    phone_number: phone,\n    caller_name: callerName,\n    validation_passed: true,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "sms-validate",
+      "name": "Validate SMS Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_failed }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "failed"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.validation_passed }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "passed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "id": "sms-router",
+      "name": "SMS Validation Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        620,
+        700
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/<REDACTED:twilio-account-sid>/Messages.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Basic QUNiOWEzYjdkZjJkZmU2MDcwOTliZDBjZTBlNmFlNDdlMTphNWQ3YmZhYTM5OWZhZTZkZjJlZjJmNTcyZTdmMDZmYg=="
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "<REDACTED:phone>"
+            },
+            {
+              "name": "To",
+              "value": "={{ $json.phone_number }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Hi {{ $json.caller_name }}! Here is your link to book a demo with Wranngle: https://cal.com/wranngle/demo\n\nReply STOP to opt out."
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "twilio-http-sms",
+      "name": "Twilio SMS via HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, message: 'SMS sent', sid: $json.body.sid } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "sms-response-node",
+      "name": "SMS Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "sms-validation-error",
+      "name": "SMS Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook: Initiate Call": {
+      "main": [
+        [
+          {
+            "node": "Build Client Data Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Client Data Payload": {
+      "main": [
+        [
+          {
+            "node": "Validation Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validation Router": {
+      "main": [
+        [
+          {
+            "node": "Respond Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ElevenLabs: Initiate Outbound Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs: Initiate Outbound Call": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Send SMS": {
+      "main": [
+        [
+          {
+            "node": "Validate SMS Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate SMS Input": {
+      "main": [
+        [
+          {
+            "node": "SMS Validation Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Validation Router": {
+      "main": [
+        [
+          {
+            "node": "SMS Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Twilio SMS via HTTP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Twilio SMS via HTTP": {
+      "main": [
+        [
+          {
+            "node": "SMS Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true
+  },
+  "tags": [
+    "DEV"
+  ]
+}

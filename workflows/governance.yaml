@@ -1,7 +1,7 @@
 # GENERATED FILE — policy block is stable; ledger and drift sections
 # are regenerated from the live instance.
 # Regenerate with: node scripts/generate-registry.js
-generated_at: "2026-07-23T05:32:54.917Z"
+generated_at: "2026-07-23T05:44:54.452Z"
 
 policy:
   # Two real phases. Legacy ALPHA/BETA/GA phases appear in the ledger
@@ -20,85 +20,85 @@ phase_counts:
   UTIL: 3
 
 ledger:
-  "8zxKBJH4QiwzhNtf": { phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / single-simulation-test" }
-  "IZIj5oh3VwCVJb34": { phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v1-automated-simulation" }
-  "Xlr1brwbzNPMyTbW": { phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v2-automated-simulation" }
-  "yR6fDZ9i9IRCYZhY": { phase: ARCHIVED, active: false, name: "[ARCHIVED] infra / qdrant-check-collection / dup-1" }
-  "l3LHt8Z5z5twoOhg": { phase: ARCHIVED, active: false, name: "[ARCHIVED] post-call / sarah-receiver / dup-1" }
-  "8CLfPvHIK10jcyPb": { phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / elevenlabs-webhook-legacy" }
-  "1PEcVXAmWa4hMbHG": { phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-1" }
-  "99IwjxkWI0EOMDF1": { phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-2" }
-  "spdpuSuiFyjBtrgR": { phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-3" }
-  "c9dFlI51VhvANoEj": { phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-dup" }
-  "zeQNX4g5mQlE4EQ0": { phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-merged" }
-  "NBvO92RVDa8pCK0d": { phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / client-data-lookup / test-merged" }
-  "ZBks5kJOLnPDN1Fr": { phase: DEV, active: true, name: "[DEV] eval / extraction-engine-test-harness" }
-  "D4GGMXFGC1PLOUT0": { phase: DEV, active: true, name: "[DEV] eval / get-elevenlabs-agent" }
-  "paneUFRzPscNvih2": { phase: DEV, active: true, name: "[DEV] eval / pipeline-test-webhook-processor" }
-  "4TqaQ6kORDzZVwVP": { phase: DEV, active: true, name: "[DEV] eval / sris-master-orchestrator" }
-  "KoQChBtjUa5F9bZg": { phase: DEV, active: true, name: "[DEV] eval / sris-verification-loop" }
-  "h6abxnSt328fQuE4": { phase: DEV, active: false, name: "[DEV] eval / test-health" }
-  "DGBMdZP4JehVfZxO": { phase: DEV, active: true, name: "[DEV] eval / testing-framework-data-table-api" }
-  "p60GgdEwiDcIrxgp": { phase: DEV, active: false, name: "[DEV] eval / universal-evaluation-runner" }
-  "KrqpJuyN8pjTouAo": { phase: DEV, active: true, name: "[DEV] eval / voice-agent-tester" }
-  "xdzhNykWZSzHgPDC": { phase: DEV, active: true, name: "[DEV] lead-intake / presales-report-generator" }
-  "LpWW36WkDAOTpGYC": { phase: DEV, active: false, name: "[DEV] post-call / dlq-reprocess" }
-  "uNDF8icsjopS7cHS": { phase: DEV, active: false, name: "[DEV] post-call / health-endpoint" }
-  "2Z4wykQk0x1Y67Sr": { phase: DEV, active: true, name: "[DEV] post-call / llm-extraction-engine" }
-  "cEORduJCqCVDOKce": { phase: DEV, active: false, name: "[DEV] post-call / pipedrive-updater" }
-  "GZsLwzpsTvl9jIEs": { phase: DEV, active: false, name: "[DEV] post-call / sarah-receiver" }
-  "6jT5kplal5Pn3Ez0": { phase: DEV, active: false, name: "[DEV] post-call / self-healing" }
-  "gNq3nynwuFx5aYz8": { phase: DEV, active: false, name: "[DEV] post-call / self-healing / dup-1" }
-  "5hvmE72qa4VYyPOK": { phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v1" }
-  "54sXqqJVSctlSF6V": { phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v2" }
-  "wqfzHVSoyBFceVJx": { phase: DEV, active: false, name: "[DEV] post-call / webhook-health-endpoint" }
-  "Rry9i9JdDulTrCci": { phase: DEV, active: true, name: "[DEV] sarah / email-tool" }
-  "4A9qOfAJYudzkCtg": { phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking" }
-  "JWoB6dfXyiyaqsFq": { phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-1" }
-  "LsOy7unG7EJ3DZIt": { phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-2" }
-  "NcP4oEeS3xolYXzC": { phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-bulletproof" }
-  "5eowJIoZFZOSG85m": { phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-with-client-data" }
-  "qQmGqBM1pe4QUI05": { phase: DEV, active: false, name: "[DEV] sarah / pipedrive-lead-auto-caller" }
-  "xpRbSAaB40G0bdLJ": { phase: DEV, active: true, name: "[DEV] scrape / bulk-web-scraper" }
-  "EnfIzTTvtUMRImGX": { phase: DEV, active: false, name: "[DEV] scrape / scrapling-browser" }
-  "ik6YjG0Sh5AAXR8G": { phase: DEV, active: false, name: "[DEV] scrape / scrapling-fetch" }
-  "1GlU3wGKi5a0zUB4": { phase: DEV, active: false, name: "[DEV] scrape / scrapling-stealth" }
-  "dWQJHG2fIwDSt5eP": { phase: DEV, active: true, name: "[DEV] scrape / web-scraper" }
-  "455dPWNVqwr1oMlJ": { phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender" }
-  "P6GObPFSDQUNOaZ0": { phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender / dup-1" }
-  "wZryG5tdRBFZUNMF": { phase: DEV, active: true, name: "[DEV] sms / sewy-garage-doors-tool" }
-  "CBoXlSNiDOHA5YmA": { phase: DEV, active: true, name: "[DEV] sms / universal-message-sender" }
-  "RjLiUAiuUs5XPvBj": { phase: DEV, active: true, name: "[DEV] SRIS - ElevenLabs Conversation Evaluator" }
-  "SjItj6uzYSr9rotM": { phase: DEV, active: false, name: "[DEV] supersystem / autonomous-sleep-loop" }
-  "dKJYSCGIORtUsTSM": { phase: DEV, active: true, name: "[DEV] supersystem / autorefinement-orchestrator" }
-  "oik6SebewNAh1cV5": { phase: DEV, active: true, name: "[DEV] supersystem / client-data-lookup" }
-  "Ar2lX0cprjeWB4Kd": { phase: DEV, active: true, name: "[DEV] supersystem / execution-logger" }
-  "mwepwjfX27x4uTMu": { phase: DEV, active: true, name: "[DEV] supersystem / native-evaluation-runner" }
-  "M7ZmLGCxyVOn5QJ6": { phase: DEV, active: true, name: "[DEV] supersystem / parallel-evaluation-runner" }
-  "8qlDREZy5qtEGkNK": { phase: DEV, active: false, name: "[DEV] supersystem / post-call-orchestrator" }
-  "ITUFwZq7ixgjTZMJ": { phase: DEV, active: true, name: "[DEV] supersystem / slack-notifier" }
-  "81W6PAGZfSi81ZQ9": { phase: PROD, active: true, name: "[PROD] elevenlabs-cicd" }
-  "SY5XCbzxX32eCIeO": { phase: PROD, active: true, name: "[PROD] lead-intake / form-receiver" }
-  "uFFwYcr7XgdRCvdW": { phase: ALPHA, active: true, name: "[PROD] sms / sarah-tool" }
-  "SwNgnCZ4muYS1FxN": { phase: UTIL, active: false, name: "[UTIL] infra / qdrant-check-collection" }
-  "uc2itny7NGQy71aB": { phase: UTIL, active: false, name: "[UTIL] infra / qdrant-create-collection" }
-  "MG1lNoZ1enpAo16W": { phase: UTIL, active: true, name: "[UTIL] infra / qdrant-setup" }
-  "HW81jnwEzjOAxjE9": { phase: UNPHASED, active: true, name: "elevenlabs_client_initiation_data_webhook" }
-  "bcaHY5IzdMuOVvrt": { phase: UNPHASED, active: true, name: "elevenlabs_monitoring_webhook" }
-  "BozTmxhIv5lepNyK": { phase: UNPHASED, active: true, name: "elevenlabs_post_call_webhook" }
-  "FGjUvywqh09XKlYJ": { phase: ALPHA, active: true, name: "elevenlabs_webhook_listener" }
+  "8zxKBJH4QiwzhNtf": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / single-simulation-test"}
+  "IZIj5oh3VwCVJb34": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v1-automated-simulation"}
+  "Xlr1brwbzNPMyTbW": {phase: ARCHIVED, active: false, name: "[ARCHIVED] eval / voice-agent-tester / v2-automated-simulation"}
+  "yR6fDZ9i9IRCYZhY": {phase: ARCHIVED, active: false, name: "[ARCHIVED] infra / qdrant-check-collection / dup-1"}
+  "l3LHt8Z5z5twoOhg": {phase: ARCHIVED, active: false, name: "[ARCHIVED] post-call / sarah-receiver / dup-1"}
+  "8CLfPvHIK10jcyPb": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / elevenlabs-webhook-legacy"}
+  "1PEcVXAmWa4hMbHG": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-1"}
+  "99IwjxkWI0EOMDF1": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-2"}
+  "spdpuSuiFyjBtrgR": {phase: ARCHIVED, active: false, name: "[ARCHIVED] sms / sarah-tool / v2-dup-3"}
+  "c9dFlI51VhvANoEj": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-dup"}
+  "zeQNX4g5mQlE4EQ0": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-merged"}
+  "NBvO92RVDa8pCK0d": {phase: ARCHIVED, active: false, name: "[ARCHIVED] supersystem / client-data-lookup / test-merged"}
+  "ZBks5kJOLnPDN1Fr": {phase: DEV, active: true, name: "[DEV] eval / extraction-engine-test-harness"}
+  "D4GGMXFGC1PLOUT0": {phase: DEV, active: true, name: "[DEV] eval / get-elevenlabs-agent"}
+  "paneUFRzPscNvih2": {phase: DEV, active: true, name: "[DEV] eval / pipeline-test-webhook-processor"}
+  "4TqaQ6kORDzZVwVP": {phase: DEV, active: true, name: "[DEV] eval / sris-master-orchestrator"}
+  "KoQChBtjUa5F9bZg": {phase: DEV, active: true, name: "[DEV] eval / sris-verification-loop"}
+  "h6abxnSt328fQuE4": {phase: DEV, active: false, name: "[DEV] eval / test-health"}
+  "DGBMdZP4JehVfZxO": {phase: DEV, active: true, name: "[DEV] eval / testing-framework-data-table-api"}
+  "p60GgdEwiDcIrxgp": {phase: DEV, active: false, name: "[DEV] eval / universal-evaluation-runner"}
+  "KrqpJuyN8pjTouAo": {phase: DEV, active: true, name: "[DEV] eval / voice-agent-tester"}
+  "xdzhNykWZSzHgPDC": {phase: DEV, active: true, name: "[DEV] lead-intake / presales-report-generator"}
+  "LpWW36WkDAOTpGYC": {phase: DEV, active: false, name: "[DEV] post-call / dlq-reprocess"}
+  "uNDF8icsjopS7cHS": {phase: DEV, active: false, name: "[DEV] post-call / health-endpoint"}
+  "2Z4wykQk0x1Y67Sr": {phase: DEV, active: true, name: "[DEV] post-call / llm-extraction-engine"}
+  "cEORduJCqCVDOKce": {phase: DEV, active: false, name: "[DEV] post-call / pipedrive-updater"}
+  "GZsLwzpsTvl9jIEs": {phase: DEV, active: false, name: "[DEV] post-call / sarah-receiver"}
+  "6jT5kplal5Pn3Ez0": {phase: DEV, active: false, name: "[DEV] post-call / self-healing"}
+  "gNq3nynwuFx5aYz8": {phase: DEV, active: false, name: "[DEV] post-call / self-healing / dup-1"}
+  "5hvmE72qa4VYyPOK": {phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v1"}
+  "54sXqqJVSctlSF6V": {phase: DEV, active: true, name: "[DEV] post-call / transcript-field-extractor / v2"}
+  "wqfzHVSoyBFceVJx": {phase: DEV, active: false, name: "[DEV] post-call / webhook-health-endpoint"}
+  "Rry9i9JdDulTrCci": {phase: DEV, active: true, name: "[DEV] sarah / email-tool"}
+  "4A9qOfAJYudzkCtg": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking"}
+  "JWoB6dfXyiyaqsFq": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-1"}
+  "LsOy7unG7EJ3DZIt": {phase: DEV, active: false, name: "[DEV] sarah / live-demo-booking / dup-2"}
+  "NcP4oEeS3xolYXzC": {phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-bulletproof"}
+  "5eowJIoZFZOSG85m": {phase: DEV, active: true, name: "[DEV] sarah / outbound-caller-with-client-data"}
+  "qQmGqBM1pe4QUI05": {phase: DEV, active: false, name: "[DEV] sarah / pipedrive-lead-auto-caller"}
+  "xpRbSAaB40G0bdLJ": {phase: DEV, active: true, name: "[DEV] scrape / bulk-web-scraper"}
+  "EnfIzTTvtUMRImGX": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-browser"}
+  "ik6YjG0Sh5AAXR8G": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-fetch"}
+  "1GlU3wGKi5a0zUB4": {phase: DEV, active: false, name: "[DEV] scrape / scrapling-stealth"}
+  "dWQJHG2fIwDSt5eP": {phase: DEV, active: true, name: "[DEV] scrape / web-scraper"}
+  "455dPWNVqwr1oMlJ": {phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender"}
+  "P6GObPFSDQUNOaZ0": {phase: DEV, active: false, name: "[DEV] sms / bulletproof-sender / dup-1"}
+  "wZryG5tdRBFZUNMF": {phase: DEV, active: true, name: "[DEV] sms / sewy-garage-doors-tool"}
+  "CBoXlSNiDOHA5YmA": {phase: DEV, active: true, name: "[DEV] sms / universal-message-sender"}
+  "RjLiUAiuUs5XPvBj": {phase: DEV, active: true, name: "[DEV] SRIS - ElevenLabs Conversation Evaluator"}
+  "SjItj6uzYSr9rotM": {phase: DEV, active: false, name: "[DEV] supersystem / autonomous-sleep-loop"}
+  "dKJYSCGIORtUsTSM": {phase: DEV, active: true, name: "[DEV] supersystem / autorefinement-orchestrator"}
+  "oik6SebewNAh1cV5": {phase: DEV, active: true, name: "[DEV] supersystem / client-data-lookup"}
+  "Ar2lX0cprjeWB4Kd": {phase: DEV, active: true, name: "[DEV] supersystem / execution-logger"}
+  "mwepwjfX27x4uTMu": {phase: DEV, active: true, name: "[DEV] supersystem / native-evaluation-runner"}
+  "M7ZmLGCxyVOn5QJ6": {phase: DEV, active: true, name: "[DEV] supersystem / parallel-evaluation-runner"}
+  "8qlDREZy5qtEGkNK": {phase: DEV, active: false, name: "[DEV] supersystem / post-call-orchestrator"}
+  "ITUFwZq7ixgjTZMJ": {phase: DEV, active: true, name: "[DEV] supersystem / slack-notifier"}
+  "81W6PAGZfSi81ZQ9": {phase: PROD, active: true, name: "[PROD] elevenlabs-cicd"}
+  "SY5XCbzxX32eCIeO": {phase: PROD, active: true, name: "[PROD] lead-intake / form-receiver"}
+  "uFFwYcr7XgdRCvdW": {phase: ALPHA, active: true, name: "[PROD] sms / sarah-tool"}
+  "SwNgnCZ4muYS1FxN": {phase: UTIL, active: false, name: "[UTIL] infra / qdrant-check-collection"}
+  "uc2itny7NGQy71aB": {phase: UTIL, active: false, name: "[UTIL] infra / qdrant-create-collection"}
+  "MG1lNoZ1enpAo16W": {phase: UTIL, active: true, name: "[UTIL] infra / qdrant-setup"}
+  "HW81jnwEzjOAxjE9": {phase: UNPHASED, active: true, name: "elevenlabs_client_initiation_data_webhook"}
+  "bcaHY5IzdMuOVvrt": {phase: UNPHASED, active: true, name: "elevenlabs_monitoring_webhook"}
+  "BozTmxhIv5lepNyK": {phase: UNPHASED, active: true, name: "elevenlabs_post_call_webhook"}
+  "FGjUvywqh09XKlYJ": {phase: ALPHA, active: true, name: "elevenlabs_webhook_listener"}
 
 # Live-fleet drift from the naming/versioning doctrine, reported honestly
 # rather than papered over. Cleanup is tracked work, not a rewrite of history.
 known_drift:
-  dual_active_versions: 
+  dual_active_versions:
     - base: "[DEV] post-call / transcript-field-extractor"
       names: ["[DEV] post-call / transcript-field-extractor / v1", "[DEV] post-call / transcript-field-extractor / v2"]
-  unphased_names: 
+  unphased_names:
     - "elevenlabs_client_initiation_data_webhook"
     - "elevenlabs_monitoring_webhook"
     - "elevenlabs_post_call_webhook"
     - "elevenlabs_webhook_listener"
-  version_suffix_names: 
+  version_suffix_names:
     - "[DEV] post-call / transcript-field-extractor / v1"
     - "[DEV] post-call / transcript-field-extractor / v2"

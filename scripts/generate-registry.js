@@ -104,20 +104,20 @@ async function main() {
   gov.push('');
   gov.push('ledger:');
   for (const wf of fleet) {
-    gov.push(`  ${yamlEscape(wf.id)}: { phase: ${phaseOf(wf)}, active: ${Boolean(wf.active)}, name: ${yamlEscape(wf.name)} }`);
+    gov.push(`  ${yamlEscape(wf.id)}: {phase: ${phaseOf(wf)}, active: ${Boolean(wf.active)}, name: ${yamlEscape(wf.name)}}`);
   }
   gov.push('');
   gov.push('# Live-fleet drift from the naming/versioning doctrine, reported honestly');
   gov.push('# rather than papered over. Cleanup is tracked work, not a rewrite of history.');
   gov.push('known_drift:');
-  gov.push(`  dual_active_versions: ${knownDrift.dual_active_versions.length === 0 ? '[]' : ''}`);
+  gov.push(knownDrift.dual_active_versions.length === 0 ? '  dual_active_versions: []' : '  dual_active_versions:');
   for (const d of knownDrift.dual_active_versions) {
     gov.push(`    - base: ${yamlEscape(d.base)}`);
     gov.push(`      names: [${d.names.map(yamlEscape).join(', ')}]`);
   }
-  gov.push(`  unphased_names: ${knownDrift.unphased_names.length === 0 ? '[]' : ''}`);
+  gov.push(knownDrift.unphased_names.length === 0 ? '  unphased_names: []' : '  unphased_names:');
   for (const n of knownDrift.unphased_names) gov.push(`    - ${yamlEscape(n)}`);
-  gov.push(`  version_suffix_names: ${knownDrift.version_suffix_names.length === 0 ? '[]' : ''}`);
+  gov.push(knownDrift.version_suffix_names.length === 0 ? '  version_suffix_names: []' : '  version_suffix_names:');
   for (const n of knownDrift.version_suffix_names) gov.push(`    - ${yamlEscape(n)}`);
   fs.writeFileSync(path.join(ROOT, 'workflows', 'governance.yaml'), gov.join('\n') + '\n');
 

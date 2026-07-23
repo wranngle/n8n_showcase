@@ -30,16 +30,9 @@ Never call LLM APIs from an HTTP Request node or from `jsCode` inside a Code nod
 
 Model selection in LangChain LLM nodes is governed by the project's model rankings. Banned/deprecated models (e.g. `gpt-4o-mini`, `gemini-2.0-flash-001`, `gemini-1.5-flash`, `claude-3-haiku`, `gpt-5-mini`) must be replaced before deploy. Defaults: text/general workflows use `gemini-3-pro`; code-heavy workflows use `claude-opus-4-5`. Get node config via `mcp__n8n-mcp__get_node_essentials({ nodeType: "nodes-langchain.lmChatGoogleGemini" })`.
 
-## n8n internal REST API (session-cookie)
+## n8n API auth — /api/v1 vs /rest
 
-The n8n public API key (`X-N8N-API-KEY`) does NOT authenticate `/rest/*` endpoints — those need session-cookie auth via `POST /rest/login` with `{ emailOrLdapLoginId, password }`, returning an `n8n-auth` cookie. Use the codified session helper rather than re-deriving this each time:
-
-```bash
-bun run ~/.claude/utils/n8n-session.ts tables
-bun run ~/.claude/utils/n8n-session.ts create-table <name> col1:string col2:number
-bun run ~/.claude/utils/n8n-session.ts activate <workflowId>
-bun run ~/.claude/utils/n8n-session.ts deactivate <workflowId>
-```
+The n8n public API key (`X-N8N-API-KEY`) authenticates `/api/v1/*` only. It does NOT authenticate `/rest/*` endpoints — those need session-cookie auth via `POST /rest/login` with `{ emailOrLdapLoginId, password }`, returning an `n8n-auth` cookie. Everything in this repo (export, drift, registry, install) uses `/api/v1` exclusively; reach for `/rest/*` only for operations the public API lacks (Data Table admin, activation with versionId), and note there is currently no session helper on disk — an earlier doctrine revision referenced `~/.claude/utils/n8n-session.ts`, which does not exist.
 
 Two recurring gotchas:
 - **Data Table node config**: the `n8n-nodes-base.dataTable` node requires `{ resource: "row", operation: "get|insert|update|deleteRows", dataTableId: { mode: "name", value: "<table-name>" }, returnAll: true }`. Common mistakes: missing `resource: "row"` (causes "Could not find property option" on activate), wrapping `dataTableId` in `__rl` (not needed), trying to pass `filters` on `get` (not a valid property — use `returnAll` + client-side filter).
@@ -55,7 +48,11 @@ Rules:
 - **New workflows auto-tag as DEV.** Untagged workflows (no n8n tag and no `[PHASE]` prefix) are grounds for archival review.
 - **Before creating, check for similar.** A 70%+ name-similarity match against the existing registry should trigger a clone-or-replace conversation, not a duplicate workflow. 40-70% similarity warrants an explicit "yes I really need a new one" from the user.
 
-Governance state lives in `workflows/governance.yaml` and `workflows/registry.yaml`.
+Governance state lives in `workflows/governance.yaml` and `workflows/registry.yaml` — both are GENERATED from the live instance by `npm run registry`; edit the generator, not the files. Known live-fleet drift (dual-active versions, unphased names, version suffixes) is listed in governance.yaml's `known_drift` section.
+
+## Exhibit pipeline (how workflow JSON enters this repo)
+
+Workflow JSON is never hand-authored or hand-edited here. The only path in is `npm run export` → `scripts/sanitize-workflow.js` (strips instance state, redacts secret-shaped strings, prints a receipt). `npm run drift` proves every exhibit equals the sanitized live workflow byte-for-byte; a scheduled CI job runs it daily. To change an exhibited workflow: change it on the instance (respecting the DEV-only rule), then re-export.
 
 ## n8n node levels (hierarchical sequential development)
 
@@ -67,17 +64,16 @@ For test/verification planning, n8n nodes map to three levels:
 Verification states ladder: `UNTESTED → RUNTIME → MOCKED → INTEGRATED → VERIFIED`. A workflow's governance phase implies a minimum verification state (DEV→UNTESTED, ALPHA→RUNTIME, BETA→MOCKED, PROD→INTEGRATED, GA/ARCHIVED→VERIFIED) — promotions advance the verification state but never regress it.
 ## Naming standards (n8n)
 
-Zero-tolerance naming, enforced at create/update time:
-- **Workflows**: `[PHASE] Verb Noun` in Title Case. Phases: `[DEV]`, `[ALPHA]`, `[BETA]`, `[PROD]`, `[ARCHIVED]`. Forbidden: version suffixes (`v1`, `v2`), kebab-case, snake_case. ✅ `[DEV] Send Email` / `[PROD] Process Lead`. ❌ `[DEV] Sarah Email Tool v1.0` / `send-email-v3`.
+- **Workflows**: `[PHASE] domain / purpose` — lowercase slash-path after the phase prefix, matching the May 2026 fleet-wide rename. ✅ `[DEV] post-call / llm-extraction-engine` / `[PROD] lead-intake / form-receiver`. ❌ version suffixes (`/ v2`), snake_case roots (`elevenlabs_post_call_webhook`), phase-less names. The live fleet still carries violations of this standard; they are inventoried in governance.yaml `known_drift` — do not add new ones.
 - **Nodes**: `Category: Action Description` in Title Case with colon separator. ✅ `Auth: Check Origin` / `Email: Send Via SMTP` / `Extract: Parse Parameters`. ❌ `check-auth` / `send_email` / `ExtractParams`.
 - **Webhook paths and IDs**: kebab-case `entity-verb-noun`, no version suffixes, no `tool` / `workflow` / `v1` suffixes. ✅ `sarah-send-email`, `lead-process-intake`. ❌ `sarah-send-sms-v3`, `send_email`, `sendEmail`.
 - **Files in this repo**: kebab-case `entity-purpose.{ext}`. ✅ `lead-processor.ts`. ❌ `sarah_email_tool_v1.json`.
 
 Exceptions: `old/`, `archive/`, `test-data/`, `fixtures/` paths and `backup_*` / `export_*` / `archived_*` prefixes are exempt.
 
-## Test discipline for hooks/configs
+## Test discipline
 
-This repo ships its own hooks and config JSON. When you modify any `hooks/*.ts`, `config/*.json`, `tests/integration/*.ts`, or `utils/*.ts` file, run the corresponding `*.integration.test.ts` suite before declaring done. If you can't find a specific mapping, run all `*.integration.test.ts`.
+One test file: `tests/n8n_showcase.bats` (doctrine: one suite per project, grouped by comment headers). When you modify anything under `scripts/`, `lib/`, or `bin/`, run `npm test` plus the four exhibit gates (`npm run verify && npm run governance && npm run lint:ratchet && npm run check:code-nodes`) before declaring done.
 
 ### Test completion summary
 Whenever you run a test suite end-to-end, finish with a structured summary so the next agent can pick up cold:

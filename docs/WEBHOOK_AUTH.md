@@ -8,7 +8,7 @@ Generic n8n webhook surface in this repo requires a shared secret on every reque
 
 Requests without the header (or with the wrong value) are rejected with `401`.
 
-ElevenLabs / vendor-signed webhooks (HMAC-SHA256 over `<timestamp>.<body>`) are handled in [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals) — see `docs/webhook-security.md` there. This doc covers the n8n shared-secret pattern only.
+ElevenLabs vendor-signed webhooks use a different protocol — HMAC-SHA256 over `<timestamp>.<body>`, verified in-workflow with crypto nodes. Two of them are exhibited here: [`workflows/elevenlabs/post-call-webhook.json`](../workflows/elevenlabs/post-call-webhook.json) and [`workflows/elevenlabs/webhook-listener.json`](../workflows/elevenlabs/webhook-listener.json) (secrets redacted on export). Deeper eval-side tooling lives in [`wranngle/voice_ai_agent_evals`](https://github.com/wranngle/voice_ai_agent_evals). The rest of this doc covers the n8n shared-secret pattern.
 
 ## Applying the pattern to a workflow
 

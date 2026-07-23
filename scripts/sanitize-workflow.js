@@ -123,4 +123,4 @@ if (require.main === module) {
   );
 }
 
-module.exports = { sanitizeWorkflow, serialize, REDACTIONS };
+module.exports = { sanitizeWorkflow, serialize, REDACTIONS, STRIP_TOP_LEVEL, STRIP_NODE_LEVEL };

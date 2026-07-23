@@ -1,82 +1,52 @@
 {
-  "name": "Clean Lead Pipeline",
+  "name": "[DEV] fixtures / lint-clean",
   "nodes": [
     {
-      "id": "trigger-1",
-      "name": "Webhook Start",
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Webhook: Receive Payload",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 200],
+      "position": [0, 0],
       "parameters": {
-        "path": "lint-clean",
-        "httpMethod": "POST"
+        "path": "fixtures-lint-clean",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
       }
     },
     {
-      "id": "lookup-1",
-      "name": "Look Up User By Id",
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "HTTP: Notify Downstream",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "onError": "continueRegularOutput",
-      "position": [400, 200],
-      "parameters": {
-        "method": "GET",
-        "url": "https://api.example.com/users/{{$json.userId}}"
-      }
-    },
-    {
-      "id": "charge-1",
-      "name": "Charge Customer",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "position": [600, 200],
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
-        "url": "https://api.stripe.com/v1/charges",
+        "url": "https://example.com/notify",
+        "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Idempotency-Key", "value": "={{$json.requestId}}" }
+            { "name": "Idempotency-Key", "value": "={{ $json.request_id }}" }
           ]
         }
       }
     },
     {
-      "id": "save-1",
-      "name": "Save To DB",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.3,
-      "continueOnFail": true,
-      "position": [800, 200],
-      "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "leads"
-      }
-    },
-    {
-      "id": "log-error",
-      "name": "Log Failure",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3,
-      "position": [600, 400],
-      "parameters": {
-        "values": { "string": [{ "name": "status", "value": "error" }] }
-      }
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Respond: Acknowledge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 0],
+      "parameters": {}
     }
   ],
   "connections": {
-    "Webhook Start": {
-      "main": [[{ "node": "Look Up User By Id", "type": "main", "index": 0 }]]
+    "Webhook: Receive Payload": {
+      "main": [[{ "node": "HTTP: Notify Downstream", "type": "main", "index": 0 }]]
     },
-    "Look Up User By Id": {
-      "main": [[{ "node": "Charge Customer", "type": "main", "index": 0 }]],
-      "error": [[{ "node": "Log Failure", "type": "main", "index": 0 }]]
-    },
-    "Charge Customer": {
-      "main": [[{ "node": "Save To DB", "type": "main", "index": 0 }]],
-      "error": [[{ "node": "Log Failure", "type": "main", "index": 0 }]]
+    "HTTP: Notify Downstream": {
+      "main": [[{ "node": "Respond: Acknowledge", "type": "main", "index": 0 }]]
     }
-  }
+  },
+  "settings": { "executionOrder": "v1" }
 }

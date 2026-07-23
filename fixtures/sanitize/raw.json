@@ -1,0 +1,46 @@
+{
+  "id": "FIXTURE0000000001",
+  "name": "[DEV] fixtures / sanitize-raw",
+  "active": true,
+  "isArchived": false,
+  "versionId": "00000000-0000-4000-8000-00000000aaaa",
+  "activeVersion": 3,
+  "activeVersionId": "00000000-0000-4000-8000-00000000bbbb",
+  "versionCounter": 3,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-06-01T00:00:00.000Z",
+  "triggerCount": 1,
+  "shared": [{ "role": "workflow:owner", "projectId": "p1" }],
+  "meta": { "instanceId": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" },
+  "pinData": { "Webhook: Receive": [{ "json": { "probe": true } }] },
+  "staticData": { "lastPoll": "2026-06-01" },
+  "tags": [{ "id": "tag123", "name": "DEV", "createdAt": "2026-01-01" }],
+  "nodes": [
+    {
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "Webhook: Receive",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "00000000-0000-4000-8000-00000000cccc",
+      "credentials": { "httpHeaderAuth": { "id": "cred123", "name": "Shared Secret" } },
+      "parameters": { "path": "fixtures-sanitize", "httpMethod": "POST" }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Code: Call Vendor APIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const el = 'sk_0123456789abcdef0123456789abcdef01234567';\nconst hook = 'wsec_00112233445566778899aabbccddeeff';\nconst goog = 'AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';\nconst sid = 'ACdeadbeefdeadbeefdeadbeefdeadbeef';\nconst jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJmaXh0dXJlIn0.c2lnbmF0dXJl';\nconst agent = 'agent_0123456789abcdefghijklmnop';\nconst phoneId = 'phnum_0123456789abcdefghijklmn';\nconst phone = '+15551234567';\nreturn [];"
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Receive": {
+      "main": [[{ "node": "Code: Call Vendor APIs", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

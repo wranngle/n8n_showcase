@@ -1,68 +1,55 @@
 {
-  "name": "Dirty Lead Pipeline",
+  "name": "[DEV] fixtures / lint-dirty",
   "nodes": [
     {
-      "id": "trigger-1",
-      "name": "Webhook Start",
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "Call +15551234567 back",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 200],
+      "position": [0, 0],
       "parameters": {
-        "path": "lint-dirty",
+        "path": "fixtures-lint-dirty",
         "httpMethod": "POST"
       }
     },
     {
-      "id": "lookup-1",
-      "name": "Look up jane.doe@example.com",
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "HTTP: Send Transcript",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [400, 200],
-      "parameters": {
-        "method": "GET",
-        "url": "https://api.example.com/users"
-      }
-    },
-    {
-      "id": "charge-1",
-      "name": "Charge Customer",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
+      "position": [220, 0],
       "retryOnFail": true,
-      "maxTries": 5,
-      "position": [600, 200],
+      "maxTries": 3,
       "parameters": {
         "method": "POST",
-        "url": "https://api.stripe.com/v1/charges",
+        "url": "https://api.elevenlabs.io/v1/convai/agents",
+        "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer sk_test_EXAMPLENOTAREALKEY1234567890" }
+            { "name": "xi-api-key", "value": "sk_0123456789abcdef0123456789abcdef01234567" }
           ]
         }
       }
     },
     {
-      "id": "save-1",
-      "name": "Save To DB",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.3,
-      "position": [800, 200],
+      "id": "b1000000-0000-4000-8000-000000000003",
+      "name": "Twilio: Send SMS",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [440, 0],
       "parameters": {
-        "operation": "insert",
-        "schema": "public",
-        "table": "leads"
+        "accountSid": "ACdeadbeefdeadbeefdeadbeefdeadbeef",
+        "message": "hello"
       }
     }
   ],
   "connections": {
-    "Webhook Start": {
-      "main": [[{ "node": "Look up jane.doe@example.com", "type": "main", "index": 0 }]]
+    "Call +15551234567 back": {
+      "main": [[{ "node": "HTTP: Send Transcript", "type": "main", "index": 0 }]]
     },
-    "Look up jane.doe@example.com": {
-      "main": [[{ "node": "Charge Customer", "type": "main", "index": 0 }]]
-    },
-    "Charge Customer": {
-      "main": [[{ "node": "Save To DB", "type": "main", "index": 0 }]]
+    "HTTP: Send Transcript": {
+      "main": [[{ "node": "Twilio: Send SMS", "type": "main", "index": 0 }]]
     }
-  }
+  },
+  "settings": { "executionOrder": "v1" }
 }

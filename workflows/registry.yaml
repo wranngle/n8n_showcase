@@ -1,284 +1,477 @@
-# Workflow Registry - Central relationship map for n8n workflows
-# This file tracks:
-# - Business processes and their workflows
-# - Many-to-many relationships between workflows
-# - Integration usage across workflows
-# - Documentation cache status
-
-version: "1.1"
-last_updated: "2025-12-29"
-
-# ============================================================================
-# BUSINESS PROCESSES
-# Each process groups related workflows that serve a common business goal
-# ============================================================================
-business_processes:
-  # Example/demo workflows (pre-existing)
-  _demos:
-    description: "Demo and test workflows"
-    status: development
-    workflows:
-      - webhook-echo
-      - get-weather
-      - hello-world-minimal
-      - example-webhook-to-slack
-    integrations: [webhook, openweathermap, slack]
-
-  # Sales call logging - sync VoIP calls to CRM
-  sales_call_logging:
-    description: "Log VoIP calls from RingCentral to CRM systems"
-    status: development
-    workflows:
-      - ringcentral-to-pipedrive
-    integrations: [ringcentral, pipedrive]
-
-  # Voice AI Agents - ElevenLabs + Twilio + Pipedrive integrations
-  voice_ai_agent_evals:
-    description: "Commercial lead qualification pipeline with AI voice agents"
-    status: production
-    workflows:
-      - elevenlabs-twilio-client-data
-      - elevenlabs-twilio-bulletproof
-      - pipedrive-lead-caller
-      - elevenlabs-call-completed
-      - transcript-field-extractor
-    integrations: [elevenlabs, twilio, pipedrive, google_gemini]
-    n8n_instance_ids:
-      elevenlabs-twilio-client-data: "5eowJIoZFZOSG85m"
-      elevenlabs-twilio-bulletproof: "NcP4oEeS3xolYXzC"
-      pipedrive-lead-caller: "qQmGqBM1pe4QUI05"
-      elevenlabs-call-completed: "cEORduJCqCVDOKce"
-      transcript-field-extractor: "5hvmE72qa4VYyPOK"
-    commercial_pipeline:
-      agent_id: "agent_5701kdgf9s4vfe9rhe68ntjrms9g"
-      agent_name: "Wranngle Lead Qualifier"
-      phone_number_id: "phnum_1901kdgev877fep99ex5fc5abb3m"
-      webhook_id: "REDACTED_ELEVENLABS_WEBHOOK_ID_3"
-
-  # Supersystem - Autonomous Self-Improving Evaluation Pipeline
-  supersystem:
-    description: "Autonomous evaluation and autorefinement for voice agents"
-    status: development
-    workflows:
-      - parallel-evaluation-runner
-      - autorefinement-orchestrator
-      - autonomous-sleep-loop
-      - client-lookup-test
-    integrations: [elevenlabs, openrouter, slack]
-    n8n_instance_ids:
-      parallel-evaluation-runner: "M7ZmLGCxyVOn5QJ6"
-      autorefinement-orchestrator: "c9dFlI51VhvANoEj"
-      autonomous-sleep-loop: "SjItj6uzYSr9rotM"
-    capabilities:
-      - "1000 tests in <60 seconds"
-      - "Automatic failure pattern detection"
-      - "AI-powered prompt fixes via gemini-3-pro"
-      - "Nightly scheduled runs at midnight"
-      - "Slack notifications on completion"
-
-  # Lead Enrichment - Centralized data enrichment microservice
-  lead_enrichment:
-    description: "Centralized Clay AI enrichment for all inbound leads"
-    status: production
-    workflows:
-      - lead-enrichment-microservice
-      - lead-intake-main
-    integrations: [webhook, clay_api, postgres, email, http_request]
-
-  # Knowledge Management - RAG Ingestion and Vector Databases
-  knowledge_management:
-    description: "Systems for ingesting and vectorizing content for AI knowledge bases"
-    status: development
-    workflows:
-      - youtube-rag-pipeline
-    integrations: [youtube, openai, qdrant]
-
-  # Template: Copy this for new business processes
-  # _template:
-  #   description: "What this process accomplishes"
-  #   status: planning | development | staging | production
-  #   owner: team-or-person
-  #   workflows: []
-  #   integrations: []
-  #   dependencies: []  # Other processes this depends on
-
-# ============================================================================
-# WORKFLOWS
-# Individual workflow metadata and relationships
-# ============================================================================
+# GENERATED FILE — do not edit by hand.
+# Regenerate with: node scripts/generate-registry.js
+# Instance: n8n.wranngle.com
+generated_at: "2026-07-23T05:32:54.917Z"
+instance: "n8n.wranngle.com"
+total: 67
+active: 33
 workflows:
-  lead-enrichment-microservice:
-    path: "lead-enrichment-microservice.json"
-    type: webhook_processor
-    status: active
-    description: "Centralized data enrichment using Clearbit and Groq"
-    serves_processes: [lead_enrichment]
-    depends_on: []
-    enables: []
-    webhook_path: "/lead-enrichment"
-    integrations:
-      - name: clearbit
-        type: data_enrichment
-      - name: groq_api
-        type: ai_llm
-    security:
-      audited: "2026-07-13"
-      scanner: gitleaks+verify
-
-  lead-intake-main:
-    path: "lead-intake-main.json"
-    type: webhook_processor
-    status: active
-    description: "Main lead intake orchestrator calling the enrichment service"
-    serves_processes: [lead_enrichment]
-    depends_on: [lead-enrichment-microservice]
-    enables: []
-    webhook_path: "/wranngle-intake-form"
-    integrations:
-      - name: postgres
-        type: storage
-      - name: email
-        type: output
-      - name: http_request
-        type: output
-    security:
-      audited: "2026-07-13"
-      scanner: gitleaks+verify
-
-  youtube-rag-pipeline:
-    path: "knowledge_management/youtube-rag-pipeline/workflow.json"
-    type: scheduled
-    status: development
-    description: "Complete YouTube ingestion pipeline: Metadata, Comments, and Scraped Transcripts vectorized into Qdrant"
-    serves_processes: [knowledge_management]
-    depends_on: []
-    enables: []
-    integrations:
-      - name: youtube
-        type: api
-        docs_cached: true
-      - name: openai
-        type: ai_embeddings
-        docs_cached: true
-      - name: qdrant
-        type: vector_store
-        docs_cached: true
-    security:
-      audited: "2026-07-13"
-      scanner: gitleaks+verify
-
-# ============================================================================
-# INTEGRATIONS
-# Tracked integrations and their documentation status
-# ============================================================================
-integrations:
-  # Core integrations used across workflows
-  webhook:
-    n8n_node: "n8n-nodes-base.webhook"
-    used_by: [webhook-echo, example-webhook-to-slack]
-    docs_cached: false
-    docs_path: null
-
-  openweathermap:
-    n8n_node: "n8n-nodes-base.openWeatherMap"
-    used_by: [get-weather]
-    docs_cached: false
-    docs_path: null
-    api_base: "https://api.openweathermap.org"
-
-  slack:
-    n8n_node: "n8n-nodes-base.slack"
-    used_by: [example-webhook-to-slack]
-    docs_cached: false
-    docs_path: null
-    auth_type: oauth2
-
-  ringcentral:
-    n8n_node: null  # No native node - uses HTTP Request
-    used_by: [ringcentral-to-pipedrive]
-    docs_cached: true
-    docs_cached_date: "2025-12-20"
-    docs_path: "sales_call_logging/ringcentral-to-pipedrive/docs/ringcentral/"
-    auth_type: jwt
-    api_base: "https://platform.ringcentral.com/restapi/v1.0"
-
-  pipedrive:
-    n8n_node: "n8n-nodes-base.pipedrive"
-    used_by: [ringcentral-to-pipedrive]
-    docs_cached: true
-    docs_cached_date: "2025-12-20"
-    docs_path: "sales_call_logging/ringcentral-to-pipedrive/docs/pipedrive/"
-    auth_type: api_token
-    api_base: "https://api.pipedrive.com/v1"
-
-  elevenlabs:
-    n8n_node: null  # No native node - uses HTTP Request
-    used_by: [elevenlabs-twilio-client-data, elevenlabs-twilio-bulletproof, transcript-field-extractor]
-    docs_cached: true
-    docs_cached_date: "2025-12-27"
-    docs_path: "docs/elevenlabs-twilio-failure-modes.md"
-    auth_type: api_key
-    api_base: "https://api.elevenlabs.io"
-    notes: "MCP server available: mcp__elevenlabs-mcp"
-    api_endpoints:
-      - path: "/v1/convai/twilio/outbound-call"
-        method: POST
-        purpose: "Initiate outbound call with client data"
-
-  google_gemini:
-    n8n_node: null # Using HTTP Request for bulk prompt
-    used_by: [transcript-field-extractor]
-    docs_cached: true
-    docs_cached_date: "2025-12-28"
-    auth_type: api_key
-    api_base: "https://generativelanguage.googleapis.com"
-    api_endpoints:
-      - path: "/v1beta/models/gemini-3-pro:generateContent"
-        method: POST
-        purpose: "LLM content generation and extraction"
-
-  twilio:
-    n8n_node: "n8n-nodes-base.twilio"
-    used_by: [elevenlabs-twilio-client-data, elevenlabs-twilio-bulletproof]
-    docs_cached: true
-    docs_cached_date: "2025-12-27"
-    docs_path: "docs/elevenlabs-twilio-failure-modes.md"
-    auth_type: basic  # Account SID + Auth Token
-    api_base: "https://api.twilio.com"
-    notes: "Phone number must be linked to ElevenLabs for outbound calls"
-
-# ============================================================================
-# WORKFLOW TYPES
-# Standard types for categorization
-# ============================================================================
-workflow_types:
-  webhook_listener: "Receives external webhooks, minimal processing"
-  webhook_processor: "Receives webhooks, processes and routes data"
-  data_fetch: "Pulls data from external APIs"
-  data_sync: "Bidirectional sync between systems"
-  notification: "Sends notifications/alerts"
-  utility: "Helper workflows called by others"
-  ai_agent: "AI/LLM powered workflows"
-  scheduled: "Cron/schedule triggered workflows"
-
-# ============================================================================
-# SHARED RESOURCES
-# Reusable subworkflows and utilities
-# ============================================================================
-shared:
-  error_handlers: []
-  notification_dispatchers: []
-  data_transformers: []
-
-# ============================================================================
-# PENDING DOCUMENTATION
-# Queue of integrations needing docs retrieval
-# ============================================================================
-docs_queue:
-  - integration: openweathermap
-    priority: low
-    reason: "Demo workflow"
-  - integration: slack
-    priority: medium
-    reason: "Common integration"
-  # elevenlabs and twilio removed - documented in docs/elevenlabs-twilio-failure-modes.md
+  - id: "8zxKBJH4QiwzhNtf"
+    name: "[ARCHIVED] eval / single-simulation-test"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 2
+    updated: "2026-05-04T04:31:51.176Z"
+  - id: "IZIj5oh3VwCVJb34"
+    name: "[ARCHIVED] eval / voice-agent-tester / v1-automated-simulation"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 11
+    updated: "2026-05-04T04:31:51.671Z"
+  - id: "Xlr1brwbzNPMyTbW"
+    name: "[ARCHIVED] eval / voice-agent-tester / v2-automated-simulation"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 18
+    updated: "2026-05-04T04:31:51.808Z"
+  - id: "yR6fDZ9i9IRCYZhY"
+    name: "[ARCHIVED] infra / qdrant-check-collection / dup-1"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 2
+    updated: "2026-05-04T04:31:50.548Z"
+  - id: "l3LHt8Z5z5twoOhg"
+    name: "[ARCHIVED] post-call / sarah-receiver / dup-1"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 12
+    updated: "2026-05-04T04:31:50.406Z"
+  - id: "8CLfPvHIK10jcyPb"
+    name: "[ARCHIVED] sms / sarah-tool / elevenlabs-webhook-legacy"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 4
+    updated: "2026-05-04T04:31:51.059Z"
+  - id: "1PEcVXAmWa4hMbHG"
+    name: "[ARCHIVED] sms / sarah-tool / v2-dup-1"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 13
+    updated: "2026-05-04T04:31:50.690Z"
+  - id: "99IwjxkWI0EOMDF1"
+    name: "[ARCHIVED] sms / sarah-tool / v2-dup-2"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 13
+    updated: "2026-05-04T04:31:50.811Z"
+  - id: "spdpuSuiFyjBtrgR"
+    name: "[ARCHIVED] sms / sarah-tool / v2-dup-3"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 13
+    updated: "2026-05-04T04:31:50.935Z"
+  - id: "c9dFlI51VhvANoEj"
+    name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-dup"
+    phase: ARCHIVED
+    active: false
+    archived: true
+    nodes: 10
+    updated: "2026-05-04T04:31:51.299Z"
+  - id: "zeQNX4g5mQlE4EQ0"
+    name: "[ARCHIVED] supersystem / autorefinement-orchestrator / v2-merged"
+    phase: ARCHIVED
+    active: false
+    archived: false
+    nodes: 8
+    updated: "2026-05-04T04:31:51.419Z"
+  - id: "NBvO92RVDa8pCK0d"
+    name: "[ARCHIVED] supersystem / client-data-lookup / test-merged"
+    phase: ARCHIVED
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:51.547Z"
+  - id: "ZBks5kJOLnPDN1Fr"
+    name: "[DEV] eval / extraction-engine-test-harness"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:45.380Z"
+  - id: "D4GGMXFGC1PLOUT0"
+    name: "[DEV] eval / get-elevenlabs-agent"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 4
+    updated: "2026-05-04T04:31:46.315Z"
+  - id: "paneUFRzPscNvih2"
+    name: "[DEV] eval / pipeline-test-webhook-processor"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:45.760Z"
+  - id: "4TqaQ6kORDzZVwVP"
+    name: "[DEV] eval / sris-master-orchestrator"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 11
+    updated: "2026-05-04T04:31:45.031Z"
+  - id: "KoQChBtjUa5F9bZg"
+    name: "[DEV] eval / sris-verification-loop"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 10
+    updated: "2026-05-04T04:31:45.200Z"
+  - id: "h6abxnSt328fQuE4"
+    name: "[DEV] eval / test-health"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 0
+    updated: "2026-05-04T04:31:46.174Z"
+  - id: "DGBMdZP4JehVfZxO"
+    name: "[DEV] eval / testing-framework-data-table-api"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 29
+    updated: "2026-05-04T04:31:45.977Z"
+  - id: "p60GgdEwiDcIrxgp"
+    name: "[DEV] eval / universal-evaluation-runner"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 4
+    updated: "2026-05-04T04:31:46.501Z"
+  - id: "KrqpJuyN8pjTouAo"
+    name: "[DEV] eval / voice-agent-tester"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 18
+    updated: "2026-05-04T05:11:42.924Z"
+  - id: "xdzhNykWZSzHgPDC"
+    name: "[DEV] lead-intake / presales-report-generator"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 13
+    updated: "2026-05-04T04:31:49.028Z"
+  - id: "LpWW36WkDAOTpGYC"
+    name: "[DEV] post-call / dlq-reprocess"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:42.883Z"
+  - id: "uNDF8icsjopS7cHS"
+    name: "[DEV] post-call / health-endpoint"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:42.604Z"
+  - id: "2Z4wykQk0x1Y67Sr"
+    name: "[DEV] post-call / llm-extraction-engine"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 9
+    updated: "2026-05-04T04:31:48.485Z"
+  - id: "cEORduJCqCVDOKce"
+    name: "[DEV] post-call / pipedrive-updater"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 28
+    updated: "2026-05-04T04:31:41.874Z"
+  - id: "GZsLwzpsTvl9jIEs"
+    name: "[DEV] post-call / sarah-receiver"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 16
+    updated: "2026-05-04T04:31:42.063Z"
+  - id: "6jT5kplal5Pn3Ez0"
+    name: "[DEV] post-call / self-healing"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 5
+    updated: "2026-05-04T04:31:42.262Z"
+  - id: "gNq3nynwuFx5aYz8"
+    name: "[DEV] post-call / self-healing / dup-1"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 5
+    updated: "2026-05-04T04:31:42.464Z"
+  - id: "5hvmE72qa4VYyPOK"
+    name: "[DEV] post-call / transcript-field-extractor / v1"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 10
+    updated: "2026-05-04T04:31:48.671Z"
+  - id: "54sXqqJVSctlSF6V"
+    name: "[DEV] post-call / transcript-field-extractor / v2"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 10
+    updated: "2026-05-04T04:31:48.845Z"
+  - id: "wqfzHVSoyBFceVJx"
+    name: "[DEV] post-call / webhook-health-endpoint"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:42.737Z"
+  - id: "Rry9i9JdDulTrCci"
+    name: "[DEV] sarah / email-tool"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 10
+    updated: "2026-05-04T04:31:43.740Z"
+  - id: "4A9qOfAJYudzkCtg"
+    name: "[DEV] sarah / live-demo-booking"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:43.925Z"
+  - id: "JWoB6dfXyiyaqsFq"
+    name: "[DEV] sarah / live-demo-booking / dup-1"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:44.064Z"
+  - id: "LsOy7unG7EJ3DZIt"
+    name: "[DEV] sarah / live-demo-booking / dup-2"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:44.178Z"
+  - id: "NcP4oEeS3xolYXzC"
+    name: "[DEV] sarah / outbound-caller-bulletproof"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 12
+    updated: "2026-05-04T05:10:52.638Z"
+  - id: "5eowJIoZFZOSG85m"
+    name: "[DEV] sarah / outbound-caller-with-client-data"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 13
+    updated: "2026-05-04T05:11:42.482Z"
+  - id: "qQmGqBM1pe4QUI05"
+    name: "[DEV] sarah / pipedrive-lead-auto-caller"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 7
+    updated: "2026-05-04T04:31:44.678Z"
+  - id: "xpRbSAaB40G0bdLJ"
+    name: "[DEV] scrape / bulk-web-scraper"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 6
+    updated: "2026-05-04T04:31:49.410Z"
+  - id: "EnfIzTTvtUMRImGX"
+    name: "[DEV] scrape / scrapling-browser"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:49.569Z"
+  - id: "ik6YjG0Sh5AAXR8G"
+    name: "[DEV] scrape / scrapling-fetch"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:49.731Z"
+  - id: "1GlU3wGKi5a0zUB4"
+    name: "[DEV] scrape / scrapling-stealth"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:49.868Z"
+  - id: "dWQJHG2fIwDSt5eP"
+    name: "[DEV] scrape / web-scraper"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 4
+    updated: "2026-05-04T04:31:49.248Z"
+  - id: "455dPWNVqwr1oMlJ"
+    name: "[DEV] sms / bulletproof-sender"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:43.014Z"
+  - id: "P6GObPFSDQUNOaZ0"
+    name: "[DEV] sms / bulletproof-sender / dup-1"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:43.187Z"
+  - id: "wZryG5tdRBFZUNMF"
+    name: "[DEV] sms / sewy-garage-doors-tool"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 13
+    updated: "2026-05-04T04:31:43.314Z"
+  - id: "CBoXlSNiDOHA5YmA"
+    name: "[DEV] sms / universal-message-sender"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 24
+    updated: "2026-05-04T04:31:43.538Z"
+  - id: "RjLiUAiuUs5XPvBj"
+    name: "[DEV] SRIS - ElevenLabs Conversation Evaluator"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 10
+    updated: "2026-05-04T05:11:43.396Z"
+  - id: "SjItj6uzYSr9rotM"
+    name: "[DEV] supersystem / autonomous-sleep-loop"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 12
+    updated: "2026-05-04T04:31:48.366Z"
+  - id: "dKJYSCGIORtUsTSM"
+    name: "[DEV] supersystem / autorefinement-orchestrator"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 7
+    updated: "2026-05-04T05:11:43.738Z"
+  - id: "oik6SebewNAh1cV5"
+    name: "[DEV] supersystem / client-data-lookup"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:46.808Z"
+  - id: "Ar2lX0cprjeWB4Kd"
+    name: "[DEV] supersystem / execution-logger"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:47.011Z"
+  - id: "mwepwjfX27x4uTMu"
+    name: "[DEV] supersystem / native-evaluation-runner"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 9
+    updated: "2026-05-04T04:31:47.212Z"
+  - id: "M7ZmLGCxyVOn5QJ6"
+    name: "[DEV] supersystem / parallel-evaluation-runner"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 6
+    updated: "2026-05-04T04:31:47.829Z"
+  - id: "8qlDREZy5qtEGkNK"
+    name: "[DEV] supersystem / post-call-orchestrator"
+    phase: DEV
+    active: false
+    archived: false
+    nodes: 8
+    updated: "2026-05-04T04:31:47.989Z"
+  - id: "ITUFwZq7ixgjTZMJ"
+    name: "[DEV] supersystem / slack-notifier"
+    phase: DEV
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-04T04:31:48.182Z"
+  - id: "81W6PAGZfSi81ZQ9"
+    name: "[PROD] elevenlabs-cicd"
+    phase: PROD
+    active: true
+    archived: false
+    nodes: 12
+    updated: "2026-05-13T02:37:06.497Z"
+  - id: "SY5XCbzxX32eCIeO"
+    name: "[PROD] lead-intake / form-receiver"
+    phase: PROD
+    active: true
+    archived: false
+    nodes: 13
+    updated: "2026-05-06T00:47:39.327Z"
+  - id: "uFFwYcr7XgdRCvdW"
+    name: "[PROD] sms / sarah-tool"
+    phase: ALPHA
+    active: true
+    archived: false
+    nodes: 20
+    updated: "2026-05-04T04:31:40.944Z"
+  - id: "SwNgnCZ4muYS1FxN"
+    name: "[UTIL] infra / qdrant-check-collection"
+    phase: UTIL
+    active: false
+    archived: false
+    nodes: 2
+    updated: "2026-05-04T04:31:50.173Z"
+  - id: "uc2itny7NGQy71aB"
+    name: "[UTIL] infra / qdrant-create-collection"
+    phase: UTIL
+    active: false
+    archived: false
+    nodes: 2
+    updated: "2026-05-04T04:31:50.285Z"
+  - id: "MG1lNoZ1enpAo16W"
+    name: "[UTIL] infra / qdrant-setup"
+    phase: UTIL
+    active: true
+    archived: false
+    nodes: 6
+    updated: "2026-05-04T04:31:49.998Z"
+  - id: "HW81jnwEzjOAxjE9"
+    name: "elevenlabs_client_initiation_data_webhook"
+    phase: UNPHASED
+    active: true
+    archived: false
+    nodes: 3
+    updated: "2026-05-22T04:07:41.727Z"
+  - id: "bcaHY5IzdMuOVvrt"
+    name: "elevenlabs_monitoring_webhook"
+    phase: UNPHASED
+    active: true
+    archived: false
+    nodes: 9
+    updated: "2026-05-22T04:07:40.975Z"
+  - id: "BozTmxhIv5lepNyK"
+    name: "elevenlabs_post_call_webhook"
+    phase: UNPHASED
+    active: true
+    archived: false
+    nodes: 17
+    updated: "2026-05-22T04:07:40.636Z"
+  - id: "FGjUvywqh09XKlYJ"
+    name: "elevenlabs_webhook_listener"
+    phase: ALPHA
+    active: true
+    archived: false
+    nodes: 35
+    updated: "2026-05-13T02:44:08.746Z"

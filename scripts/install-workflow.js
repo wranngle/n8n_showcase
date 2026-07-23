@@ -1,11 +1,23 @@
 #!/usr/bin/env node
-// One-click installer: POST a workflow JSON file to a local n8n instance.
-// Usage: node scripts/install-workflow.js <path> --n8n-url <url> --api-key <key>
+// Installer: POST a sanitized workflow JSON file to an n8n instance via the
+// public API. Creates the workflow deactivated; activate it in the n8n UI
+// after wiring credentials.
+//
+// Usage: node scripts/install-workflow.js <workflow.json> [--n8n-url <url>] [--api-key <key>]
+//   Credentials default to N8N_URL / N8N_API_KEY (loaded from ~/.claude/.env).
+//
+// Note: POST /api/v1/workflows accepts only {name, nodes, connections,
+// settings} — the payload is projected down to those keys, so a full exhibit
+// file installs cleanly. (/rest/* endpoints do not accept API-key auth;
+// earlier revisions of this script used them and could never have worked.)
 
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const { URL } = require('url');
+require('./lib/env');
+
+const INSTALL_KEYS = ['name', 'nodes', 'connections', 'settings'];
 
 function parseArgs(argv) {
   const out = { positional: [], flags: {} };
@@ -28,18 +40,25 @@ function parseArgs(argv) {
 }
 
 function usage() {
-  console.error('Usage: node scripts/install-workflow.js <workflow.json> --n8n-url <url> --api-key <key>');
-  console.error('  Reads workflow JSON, POSTs to <n8n-url>/rest/workflows, prints new workflow id.');
+  console.error('Usage: node scripts/install-workflow.js <workflow.json> [--n8n-url <url>] [--api-key <key>]');
+  console.error('  POSTs the workflow to <n8n-url>/api/v1/workflows and prints the new workflow id.');
 }
 
-function readWorkflow(path) {
-  const raw = fs.readFileSync(path, 'utf8');
-  const parsed = JSON.parse(raw);
-  return parsed;
+function projectPayload(workflow) {
+  const out = {};
+  for (const key of INSTALL_KEYS) {
+    if (workflow[key] !== undefined) out[key] = workflow[key];
+  }
+  if (!out.name || !Array.isArray(out.nodes) || out.nodes.length === 0) {
+    throw new Error('workflow must have a non-empty name and a non-empty nodes array');
+  }
+  if (!out.connections) out.connections = {};
+  if (!out.settings) out.settings = {};
+  return out;
 }
 
 function postWorkflow({ n8nUrl, apiKey, workflow }) {
-  const url = new URL('/rest/workflows', n8nUrl);
+  const url = new URL('/api/v1/workflows', n8nUrl);
   const body = JSON.stringify(workflow);
   const lib = url.protocol === 'https:' ? https : http;
   const opts = {
@@ -90,7 +109,7 @@ async function main() {
     process.exit(2);
   }
 
-  const workflow = readWorkflow(workflowPath);
+  const workflow = projectPayload(JSON.parse(fs.readFileSync(workflowPath, 'utf8')));
   const { status, body } = await postWorkflow({ n8nUrl, apiKey, workflow });
 
   if (status >= 200 && status < 300) {
@@ -103,7 +122,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.error(`POST /rest/workflows failed: HTTP ${status}`);
+  console.error(`POST /api/v1/workflows failed: HTTP ${status}`);
   console.error(body);
   process.exit(1);
 }
@@ -115,4 +134,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { parseArgs, extractId, postWorkflow };
+module.exports = { parseArgs, extractId, postWorkflow, projectPayload, INSTALL_KEYS };

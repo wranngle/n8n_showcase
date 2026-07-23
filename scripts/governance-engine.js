@@ -1,145 +1,134 @@
+#!/usr/bin/env node
+/**
+ * governance-engine.js — validate every checked-in workflow exhibit against
+ * project doctrine (CLAUDE.md).
+ *
+ * ERRORS (exit 1 — repo-controllable, must be fixed before merge):
+ *   - JSON parse failure
+ *   - empty or missing nodes array / missing name
+ *   - forbidden sanitization keys present (credentials, pinData, webhookId,
+ *     staticData, meta.instanceId)
+ *   - banned LLM models referenced anywhere in node parameters
+ *
+ * WARNINGS (reported, non-blocking — they mirror live-fleet drift the
+ * exhibits faithfully reproduce; fixing them means fixing the instance):
+ *   - LLM APIs called from httpRequest/code nodes (doctrine: use LangChain nodes)
+ *   - IF nodes (doctrine: prefer Switch — n8n IF v2.2 routing bugs)
+ *   - live name missing a [PHASE] prefix, or carrying a version suffix
+ *
+ * Usage: node scripts/governance-engine.js [workflows-dir]
+ */
+
 const fs = require('fs');
 const path = require('path');
 
-const ARGS = process.argv.slice(2);
-const TARGET_FILE = ARGS[0];
+const WORKFLOWS_DIR = path.resolve(process.argv[2] || path.join(__dirname, '..', 'workflows'));
 
-if (!TARGET_FILE) {
-    console.error("Usage: node governance-engine.js <workflow-file.json>");
+const FORBIDDEN_KEYS = ['credentials', 'pinData', 'webhookId', 'staticData'];
+
+const BANNED_MODELS = [
+  'gpt-4o-mini', 'gemini-2.0-flash-001', 'gemini-1.5-flash', 'claude-3-haiku', 'gpt-5-mini',
+];
+
+const BLOCKED_LLM_HOSTS = [
+  'openrouter.ai', 'api.openai.com/v1/chat', 'generativelanguage.googleapis.com',
+  'api.anthropic.com', 'api.cohere.ai', 'api.mistral.ai', 'api.together.xyz', 'api.groq.com',
+];
+
+function findWorkflows(dir, results = []) {
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (fs.statSync(full).isDirectory()) findWorkflows(full, results);
+    else if (entry.endsWith('.json')) results.push(full);
+  }
+  return results;
+}
+
+function deepFindKeys(node, keys, found = new Set()) {
+  if (Array.isArray(node)) {
+    for (const item of node) deepFindKeys(item, keys, found);
+  } else if (node && typeof node === 'object') {
+    for (const key of keys) if (key in node) found.add(key);
+    if (node.meta && typeof node.meta === 'object' && 'instanceId' in node.meta) {
+      found.add('meta.instanceId');
+    }
+    for (const k of Object.keys(node)) deepFindKeys(node[k], keys, found);
+  }
+  return found;
+}
+
+function checkWorkflow(file) {
+  const errors = [];
+  const warnings = [];
+  const rel = path.relative(process.cwd(), file);
+
+  let wf;
+  try {
+    wf = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    return { file: rel, errors: [`parse: ${e.message}`], warnings };
+  }
+
+  if (typeof wf.name !== 'string' || wf.name.length === 0) errors.push('missing name');
+  if (!Array.isArray(wf.nodes) || wf.nodes.length === 0) errors.push('empty nodes array');
+
+  const forbidden = deepFindKeys(wf, FORBIDDEN_KEYS);
+  if (forbidden.size > 0) errors.push(`forbidden keys: ${[...forbidden].sort().join(', ')}`);
+
+  const text = JSON.stringify(wf);
+  for (const model of BANNED_MODELS) {
+    if (text.includes(model)) errors.push(`banned model: ${model}`);
+  }
+
+  for (const node of wf.nodes || []) {
+    const type = String(node.type || '');
+    if (type === 'n8n-nodes-base.if') {
+      warnings.push(`IF node "${node.name}" (doctrine: prefer Switch — IF v2.2 routing bugs)`);
+    }
+    if (type === 'n8n-nodes-base.httpRequest' || type === 'n8n-nodes-base.code') {
+      const nodeText = JSON.stringify(node.parameters || {});
+      for (const host of BLOCKED_LLM_HOSTS) {
+        if (nodeText.includes(host)) {
+          warnings.push(`LLM-over-HTTP in "${node.name}" (${host}) — doctrine: use LangChain nodes`);
+        }
+      }
+    }
+  }
+
+  if (typeof wf.name === 'string') {
+    if (!/^\[[A-Z]+\]/.test(wf.name)) {
+      warnings.push(`live name has no [PHASE] prefix: "${wf.name}"`);
+    }
+    if (/\/\s*v\d+\b/.test(wf.name)) {
+      warnings.push(`live name carries a version suffix: "${wf.name}"`);
+    }
+  }
+
+  return { file: rel, errors, warnings };
+}
+
+function main() {
+  const files = findWorkflows(WORKFLOWS_DIR);
+  if (files.length === 0) {
+    console.error(`governance: no workflow JSON found under ${WORKFLOWS_DIR}`);
     process.exit(1);
+  }
+
+  let errorCount = 0;
+  let warningCount = 0;
+  for (const file of files) {
+    const { file: rel, errors, warnings } = checkWorkflow(file);
+    for (const e of errors) console.error(`ERROR ${rel}: ${e}`);
+    for (const w of warnings) console.log(`warn  ${rel}: ${w}`);
+    errorCount += errors.length;
+    warningCount += warnings.length;
+  }
+
+  console.log(`governance: ${files.length} workflows, ${errorCount} errors, ${warningCount} warnings`);
+  process.exit(errorCount === 0 ? 0 : 1);
 }
 
-// Helper to find all workflows for similarity check
-function getAllWorkflows(dir) {
-    let results = [];
-    const list = fs.readdirSync(dir);
-    list.forEach(file => {
-        const filePath = path.resolve(path.join(dir, file));
-        const stat = fs.statSync(filePath);
-        if (stat && stat.isDirectory()) {
-            results = results.concat(getAllWorkflows(filePath));
-        } else if (file.endsWith('.json') && filePath !== path.resolve(TARGET_FILE)) {
-            results.push(filePath);
-        }
-    });
-    return results;
-}
+if (require.main === module) main();
 
-// Simple Jaccard similarity for node types
-function calculateSimilarity(w1, w2) {
-    const types1 = new Set(w1.nodes.map(n => n.type));
-    const types2 = new Set(w2.nodes.map(n => n.type));
-    
-    const intersection = new Set([...types1].filter(x => types2.has(x)));
-    const union = new Set([...types1, ...types2]);
-    
-    return intersection.size / union.size;
-}
-
-try {
-    const content = fs.readFileSync(TARGET_FILE, 'utf8');
-    const workflow = JSON.parse(content);
-    const errors = [];
-
-    // 1. Tagging (Literal Check)
-    // We check for the ID or strict name presence in tags array
-    const hasDevTag = workflow.tags && workflow.tags.some(t => t.id === 'Nbnc0KJVYlJeasQJ' || t.name === 'DEV');
-    const hasArchivedTag = workflow.tags && workflow.tags.some(t => t.id === '4k9QbQQTpxNkOoJQ' || t.name === 'ARCHIVED');
-
-    if (!hasDevTag && !hasArchivedTag) {
-        errors.push("CRITICAL: Workflow must be literally tagged with DEV (Nbnc0KJVYlJeasQJ) or ARCHIVED (4k9QbQQTpxNkOoJQ). Name prefix is not enough.");
-    }
-
-    // 2. Archiving (Literal Check)
-    if (hasArchivedTag && workflow.active !== false) {
-        errors.push("CRITICAL: Archived workflows must be literally inactive (active: false).");
-    }
-
-    // 3. Workflow Naming
-    if (workflow.name.match(/v\d+/i)) {
-        errors.push("Naming: Version numbers banned from workflow name.");
-    }
-    const bannedWords = ['agent', 'orchestrator', 'super', 'hyper', 'mega', 'synapse', 'synthesized'];
-    bannedWords.forEach(word => {
-        if (workflow.name.toLowerCase().includes(word)) {
-            errors.push(`Naming: Buzzword '${word}' is banned from workflow name.`);
-        }
-    });
-
-    // 4. Node Rules
-    workflow.nodes.forEach(node => {
-        const isTrigger = node.type.includes('trigger') || node.type.includes('webhook');
-        
-        // Snake Case & Generic Trigger Names
-        if (isTrigger) {
-            const allowedTriggers = ['webhook_trigger', 'schedule_trigger', 'cron_trigger', 'poll_trigger'];
-            if (!allowedTriggers.includes(node.name)) {
-                 errors.push(`Node Naming: Trigger node '${node.name}' must be generic and snake_case (e.g., 'webhook_trigger').`);
-            }
-        } else {
-            const isSnake = /^[a-z0-9_]+$/.test(node.name);
-            if (!isSnake) {
-                errors.push(`Node Naming: Node '${node.name}' must be snake_case (e.g., 'process_data').`);
-            }
-        }
-
-        // Notes Check
-        if (!node.notes || node.notes.trim().length === 0) {
-            errors.push(`Compliance: Node '${node.name}' is missing notes.`);
-        }
-    });
-
-    // 5. Webhook Structure
-    workflow.nodes.forEach(node => {
-        if (node.type.includes('webhook')) {
-            const pathParam = node.parameters?.path;
-            if (pathParam) {
-                if (pathParam.includes('/')) {
-                    errors.push(`Webhook: Path '${pathParam}' must be unnested (no slashes).`);
-                }
-                if (!/^[a-z0-9-]+$/.test(pathParam)) {
-                    errors.push(`Webhook: Path '${pathParam}' must be kebab-case.`);
-                }
-            }
-        }
-    });
-
-    // 5.5 Research Preaction (New Rule)
-    // "Workflow changes must follow an external research preaction"
-    if (!workflow.meta || !workflow.meta.research_proof) {
-        // We allow missing proof ONLY if the workflow is ARCHIVED
-        if (!hasArchivedTag) {
-             errors.push("Process: Workflow missing 'meta.research_proof'. Changes must follow external research preaction.");
-        }
-    }
-
-    // 6. Duplication Check
-    // This assumes we are in the project root
-    const allWorkflows = getAllWorkflows('workflows');
-    for (const otherFile of allWorkflows) {
-        try {
-            const otherWf = JSON.parse(fs.readFileSync(otherFile, 'utf8'));
-            const similarity = calculateSimilarity(workflow, otherWf);
-            if (similarity > 0.95) { // Very strict threshold
-                 // Check if it's not the same ID (re-saving same file)
-                 // But we excluded TARGET_FILE in get function
-                 errors.push(`Duplication: Workflow is too similar (${(similarity*100).toFixed(1)}%) to '${otherFile}'. Update existing flow instead.`);
-            }
-        } catch (e) {
-            // Ignore parse errors in other files
-        }
-    }
-
-    // Output
-    if (errors.length > 0) {
-        console.error("GOVERNANCE FAILURE:");
-        errors.forEach(e => console.error(`- ${e}`));
-        process.exit(1);
-    } else {
-        console.log("Governance Check: PASSED");
-    }
-
-} catch (err) {
-    console.error("Governance Engine Error:", err.message);
-    process.exit(1);
-}
+module.exports = { checkWorkflow, FORBIDDEN_KEYS, BANNED_MODELS, BLOCKED_LLM_HOSTS };

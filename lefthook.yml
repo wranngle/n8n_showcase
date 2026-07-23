@@ -20,8 +20,11 @@ pre-commit:
         - "workflows/**/*.json"
       run: node scripts/verify-workflows.js
 
-    - name: gitleaks-staged-workflows
+    - name: gitleaks-workflows
       glob:
         - "workflows/*.json"
         - "workflows/**/*.json"
-      run: gitleaks dir --no-banner --config .gitleaks.toml --exit-code 1 {staged_files}
+      # Scans the whole workflows tree rather than {staged_files}: gitleaks'
+      # dir subcommand accepts a single path, so passing 2+ staged files
+      # silently dropped all but one.
+      run: gitleaks dir workflows --no-banner --config .gitleaks.toml --exit-code 1

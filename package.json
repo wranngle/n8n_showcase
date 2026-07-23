@@ -1,14 +1,19 @@
 {
   "name": "n8n-showcase",
-  "version": "2.0.0",
-  "description": "n8n workflow showcase: install, govern, diff, lint, and drift-check sanitized lead-intake and post-call workflows",
+  "version": "3.0.0",
+  "description": "A production voice-AI operation on n8n: sanitized exhibits of the live workflows behind Sarah — outbound calling, post-call extraction, self-healing, eval, CI/CD — plus the toolchain that keeps them honest",
   "private": true,
   "type": "commonjs",
   "scripts": {
     "test": "bats tests",
     "verify": "node scripts/verify-workflows.js",
-    "build:site": "node scripts/build-site.js",
-    "test:site": "bats tests/site.bats"
+    "governance": "node scripts/governance-engine.js",
+    "lint": "node bin/n8n-lint.js workflows",
+    "lint:ratchet": "node bin/n8n-lint.js workflows --baseline lint-baseline.json",
+    "check:code-nodes": "node scripts/check-code-nodes.js",
+    "drift": "node bin/drift.js",
+    "export": "node scripts/export-live-workflows.js",
+    "registry": "node scripts/generate-registry.js"
   },
   "repository": {
     "type": "git",
@@ -16,8 +21,7 @@
   },
   "bin": {
     "n8n-showcase-drift": "bin/drift.js",
-    "n8n-showcase-lint": "bin/n8n-lint.js",
-    "n8n-showcase-uninstall": "bin/uninstall-workflow.js"
+    "n8n-showcase-lint": "bin/n8n-lint.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0"
@@ -26,8 +30,5 @@
     "node": ">=18.0.0"
   },
   "author": "wranngle",
-  "license": "MIT",
-  "devDependencies": {
-    "yaml": "^2.8.2"
-  }
+  "license": "MIT"
 }

@@ -227,3 +227,8 @@ teardown() {
   "
   [ "$status" -eq 0 ]
 }
+
+@test "code nodes: every exhibit's jsCode compiles in n8n's async function context" {
+  run node scripts/check-code-nodes.js
+  [ "$status" -eq 0 ]
+}
